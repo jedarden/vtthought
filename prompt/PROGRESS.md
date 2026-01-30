@@ -266,7 +266,26 @@
   - [x] All code compiles successfully (Python and TypeScript)
 
 ### In Progress
-- [ ] User testing and feedback collection
+- [ ] User testing and feedback collection (waiting for real users)
+
+### Completed This Session (Session 21)
+- [x] GitHub repository setup for beta testing
+  - Created 6 GitHub issue templates (.github/ISSUE_TEMPLATE/):
+    - bug_report.md - Structured bug report with environment details
+    - feature_request.md - Feature request with problem statement
+    - performance_issue.md - Performance-specific reporting
+    - accuracy_issue.md - Transcription accuracy issues with examples
+    - usability_issue.md - UX/confusion issues
+    - documentation.md - Documentation problems
+  - Created PULL_REQUEST_TEMPLATE.md:
+    - Change type classification
+    - Testing checklist
+    - Platform testing checkboxes
+  - Updated README.md with beta CTA:
+    - Prominent "We Need Your Help!" section
+    - Quick contribution links (report bug, suggest feature, ask question)
+    - Testing checklist for new users
+    - Better calls-to-action for GitHub Issues/Discussions
 
 ### Completed This Session (Session 20)
 - [x] Documentation for user testing phase
@@ -712,6 +731,24 @@
   - Linked all new documentation files
 - Updated PROGRESS.md with Session 20 completion
 - All documentation files created and linked
+
+### Session 21 - GitHub Repository Setup for Beta Testing
+- Created GitHub issue templates (.github/ISSUE_TEMPLATE/):
+  - bug_report.md - Structured bug reports with environment details
+  - feature_request.md - Feature requests with problem statements
+  - performance_issue.md - Performance-specific reporting (CPU, memory, transcription speed)
+  - accuracy_issue.md - Transcription accuracy issues with example tables
+  - usability_issue.md - UX/confusion issues with severity levels
+  - documentation.md - Documentation problem reporting
+- Created PULL_REQUEST_TEMPLATE.md:
+  - Change type classification (bug fix, new feature, breaking change, etc.)
+  - Testing checklist and platform checkboxes
+  - Before/after screenshot placeholders
+- Updated README.md with beta CTA:
+  - Added prominent "We Need Your Help!" section
+  - Quick contribution links (Report a Bug, Suggest a Feature, Ask a Question)
+  - Testing checklist for new beta testers
+- Repository ready for beta testers to report issues
 
 ---
 

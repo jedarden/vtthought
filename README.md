@@ -129,7 +129,35 @@ See the [ADRs](./ADRs/) directory for architectural decisions covering:
 
 ## Status
 
-**Beta Testing** - Core features implemented, ready for user testing. See [BETA_TESTING.md](./docs/BETA_TESTING.md) to participate.
+**Beta Testing (v0.1.0)** - Core features implemented and ready for user testing.
+
+### We Need Your Help!
+
+VTThought is now in **open beta**. We're looking for testers to:
+
+- Try voice dictation for real coding tasks
+- Test voice commands and personalization features
+- Report bugs and accuracy issues
+- Suggest improvements and new features
+
+[**Join the Beta Testing Program**](./docs/BETA_TESTING.md)
+
+### Quick Ways to Contribute
+
+| How | Link |
+|-----|------|
+| Report a Bug | [Open an Issue](https://github.com/jedarden/vtthought/issues/new?template=bug_report.md) |
+| Suggest a Feature | [Open an Issue](https://github.com/jedarden/vtthought/issues/new?template=feature_request.md) |
+| Ask a Question | [Start a Discussion](https://github.com/jedarden/vtthought/discussions) |
+
+### Testing Checklist
+
+- [ ] Install and run the backend
+- [ ] Connect VS Code extension
+- [ ] Try push-to-talk dictation
+- [ ] Test voice commands (38 available)
+- [ ] Add vocabulary terms
+- [ ] Report your experience
 
 ## License
 
