@@ -1,0 +1,42 @@
+# FastAPI and WebSocket
+fastapi>=0.109.0
+uvicorn[standard]>=0.27.0
+websockets>=12.0
+
+# ASGI server for production
+gunicorn>=21.2.0
+
+# Pydantic for data validation
+pydantic>=2.5.0
+pydantic-settings>=2.1.0
+
+# Python 3.12+ compatibility
+python-multipart>=0.0.6
+
+# CORS support
+python-dotenv>=1.0.0
+
+# HTTP client for extension testing
+httpx>=0.26.0
+
+# Logging
+python-json-logger>=2.0.7
+
+# JWT Authentication (ADR-002)
+python-jose[cryptography]>=3.3.0
+passlib[bcrypt]>=1.7.4
+python-multipart>=0.0.6
+
+# STT Engine placeholders (ADR-005)
+# faster-whisper>=1.0.0  # Added when STT is implemented
+# deepgram-sdk>=3.0.0    # Fallback, added when STT is implemented
+
+# LLM Post-Processing placeholder (ADR-006)
+# ollama>=0.1.0          # Added when LLM is implemented
+
+# Development dependencies
+pytest>=7.4.0
+pytest-asyncio>=0.23.0
+black>=23.12.0
+ruff>=0.1.0
+mypy>=1.8.0

@@ -1,0 +1,87 @@
+# VTThought Docker Compose Configuration
+# Local development environment with GPU support
+services:
+  # Backend Service
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: vtthought-backend
+    ports:
+      - "8000:8000"
+    environment:
+      - ENVIRONMENT=development
+      - DEBUG=true
+      - LOG_LEVEL=INFO
+      # STT Configuration (ADR-005)
+      - STT_ENGINE=faster-whisper
+      - STT_DEVICE=auto  # Will use CUDA if available, otherwise CPU
+      - STT_COMPUTE_TYPE=float16
+      # LLM Configuration (ADR-006)
+      - LLM_PROVIDER=ollama
+      - LLM_BASE_URL=http://ollama:11434
+      - LLM_MODEL=llama3.1:8b
+    volumes:
+      # Mount app directory for hot reload during development
+      - ./backend/app:/app/app
+      # Persist models cache
+      - vtthought-models:/root/.cache
+    # GPU support (requires nvidia-docker)
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    networks:
+      - vtthought-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+
+  # Ollama LLM Service (ADR-006)
+  ollama:
+    image: ollama/ollama:latest
+    container_name: vtthought-ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - vtthought-ollama:/root/.ollama
+    # GPU support for LLM inference
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    networks:
+      - vtthought-network
+    restart: unless-stopped
+    # Pull model on startup
+    entrypoint: ["/bin/sh", "-c", "ollama serve & sleep 5 && ollama pull llama3.1:8b && wait"]
+
+  # Optional: Cloudflare Tunnel for remote access (ADR-009)
+  # Comment out this service if not using Cloudflare Tunnel
+  # cloudflared:
+  #   image: cloudflare/cloudflared:latest
+  #   container_name: vtthought-tunnel
+  #   command: tunnel run
+  #   environment:
+  #     - TUNNEL_TOKEN=${CLOUDFLARE_TUNNEL_TOKEN:-}
+  #   networks:
+  #     - vtthought-network
+  #   restart: unless-stopped
+
+networks:
+  vtthought-network:
+    driver: bridge
+
+volumes:
+  vtthought-models:
+  vtthought-ollama:

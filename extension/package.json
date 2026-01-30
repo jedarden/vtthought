@@ -1,0 +1,87 @@
+{
+  "name": "vtthought",
+  "displayName": "VTThought - Voice to Code",
+  "description": "Voice-to-code VS Code extension with push-to-talk transcription and LLM post-processing",
+  "version": "0.1.0",
+  "publisher": "vtthought",
+  "engines": {
+    "vscode": "^1.80.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "vtthought.toggleRecording",
+        "title": "VTThought: Toggle Recording"
+      },
+      {
+        "command": "vtthought.openSettings",
+        "title": "VTThought: Open Settings"
+      },
+      {
+        "command": "vtthought.connectBackend",
+        "title": "VTThought: Connect to Backend"
+      },
+      {
+        "command": "vtthought.disconnectBackend",
+        "title": "VTThought: Disconnect from Backend"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "vtthought.toggleRecording",
+        "key": "ctrl+alt+v",
+        "mac": "cmd+alt+v",
+        "when": "editorTextFocus"
+      }
+    ],
+    "configuration": {
+      "title": "VTThought",
+      "properties": {
+        "vtthought.backendUrl": {
+          "type": "string",
+          "default": "ws://localhost:8000/ws/audio",
+          "description": "WebSocket URL for the backend transcription service"
+        },
+        "vtthought.apiUrl": {
+          "type": "string",
+          "default": "http://localhost:8000",
+          "description": "Base URL for the backend API"
+        },
+        "vtthought.pushToTalkEnabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable push-to-talk mode (hold hotkey to record)"
+        },
+        "vtthought.autoConnect": {
+          "type": "boolean",
+          "default": true,
+          "description": "Automatically connect to backend on activation"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "pretest": "npm run compile && npm run lint",
+    "lint": "eslint src --ext ts",
+    "test": "node ./out/test/runTest.js"
+  },
+  "devDependencies": {
+    "@types/node": "^25.1.0",
+    "@types/vscode": "^1.108.1",
+    "@typescript-eslint/eslint-plugin": "^7.18.0",
+    "@typescript-eslint/parser": "^7.18.0",
+    "@vscode/test-electron": "^2.5.2",
+    "eslint": "^8.57.1",
+    "typescript": "^5.9.3"
+  }
+}
