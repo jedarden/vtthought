@@ -3,8 +3,10 @@ Style learning engine for user personalization (ADR-011).
 
 Learns user formatting preferences from corrections and applies them to LLM cleanup.
 """
+import asyncio
 import re
 from dataclasses import dataclass
+from functools import lru_cache
 from typing import Optional
 
 from app.database import UserRepository, get_db
@@ -21,6 +23,11 @@ class StyleChange:
     context: Optional[str]  # Surrounding context
 
 
+# Global cache lock for async-safe cache invalidation
+_style_cache_lock = asyncio.Lock()
+_cached_style_prompts: dict[str, str] = {}
+
+
 class StyleLearner:
     """
     Learn user style preferences from corrections.
@@ -30,18 +37,25 @@ class StyleLearner:
     - Capitalization (JavaScript vs javascript)
     - Number format (5 vs five)
     - Abbreviations (don't vs do not)
+
+    Performance: Style preferences are cached per user to avoid repeated DB queries.
+    Configuration values loaded from settings.
     """
 
-    def __init__(self, user_id: str, min_occurrences: int = 3):
+    def __init__(self, user_id: str, min_occurrences: int = None):
         """
         Initialize style learner for user.
 
         Args:
             user_id: User ID for scoping all operations
-            min_occurrences: Minimum occurrences before considering preference confident
+            min_occurrences: Minimum occurrences before considering preference confident (from config if not specified)
         """
+        from app.config import get_settings
+
+        settings = get_settings()
         self.user_id = user_id
-        self.min_occurrences = min_occurrences
+        # Use config value if not specified
+        self.min_occurrences = min_occurrences if min_occurrences is not None else settings.style_learning_min_occurrences
 
     async def learn_from_edit(self, original: str, edited: str) -> None:
         """
@@ -68,6 +82,9 @@ class StyleLearner:
                         change.pattern,
                         change.replacement
                     )
+
+            # Invalidate cache when learning new preferences
+            await self.invalidate_cache()
 
     def _extract_changes(self, original: str, edited: str) -> list[StyleChange]:
         """
@@ -257,9 +274,16 @@ class StyleLearner:
         """
         Generate LLM prompt additions based on learned preferences.
 
+        Performance: Returns cached prompt if available to avoid repeated DB queries.
+
         Returns:
             String with user's style preferences formatted for LLM prompt
         """
+        # Check cache first
+        async with _style_cache_lock:
+            if self.user_id in _cached_style_prompts:
+                return _cached_style_prompts[self.user_id]
+
         prefs = await self._get_confident_preferences()
 
         if not prefs:
@@ -290,7 +314,22 @@ class StyleLearner:
         elif prefs.get('use_contractions'):
             prompt_parts.append("- Use contractions (don't, do not)")
 
-        return "\n".join(prompt_parts)
+        prompt = "\n".join(prompt_parts)
+
+        # Cache the prompt
+        async with _style_cache_lock:
+            _cached_style_prompts[self.user_id] = prompt
+
+        return prompt
+
+    async def invalidate_cache(self) -> None:
+        """
+        Invalidate cached style prompt for this user.
+
+        Call this after learning new preferences to ensure fresh prompts.
+        """
+        async with _style_cache_lock:
+            _cached_style_prompts.pop(self.user_id, None)
 
     async def _get_confident_preferences(self) -> dict:
         """

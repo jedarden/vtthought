@@ -250,10 +250,9 @@
     - Fire-and-forget background reporting
 
 ### In Progress
-- [ ] Performance tuning with real audio testing
+- [ ] User testing and feedback collection
 
 ### Next Up
-- [ ] Performance tuning with real audio testing
 - [ ] User testing and feedback collection
 
 ---
@@ -568,6 +567,37 @@
   - Register all new preference management commands
   - Handler methods for each preference command
 - All code compiles successfully (TypeScript)
+
+### Session 17 - Performance Tuning (Real Audio Optimization)
+- Added user vocabulary to StreamingWhisperSTT for personalization (ADR-011)
+  - Added `set_user_vocabulary()` method to cache user vocabulary prompt
+  - Updated `_transcribe_partial()` and `_transcribe_final()` to use cached vocabulary
+  - Integrated vocabulary caching in WebSocket handler for streaming STT
+- Implemented batch DB operations for correction updates (ADR-011)
+  - Created `_batch_increment_correction_counts()` to avoid N+1 queries
+  - `apply_corrections()` now batches all matched corrections in single transaction
+- Added async-safe locking to VocabularyCache (ADR-011)
+  - Replaced thread-unsafe TTLCache access with asyncio.Lock
+  - Updated all cache methods to async: `get_user_prompt()`, `set_user_prompt()`, `invalidate()`
+- Cached style preferences in StyleLearner (ADR-011)
+  - Added global `_cached_style_prompts` dict with async lock
+  - `get_style_prompt()` now returns cached result to avoid repeated DB queries
+  - Added `invalidate_cache()` method called when learning new preferences
+- Moved hardcoded tunable values to config.py
+  - STT tuning: `stt_beam_size`, `stt_best_of`, `stt_vad_threshold`, `stt_vad_min_speech_ms`, `stt_vad_min_silence_ms`
+  - STT streaming: `stt_streaming_chunk_size`, `stt_streaming_process_interval`
+  - LLM tuning: `llm_http_timeout`, `llm_circuit_failure_threshold`, `llm_circuit_reset_timeout`
+  - LLM retry: `llm_retry_max_attempts`, `llm_retry_base_delay`, `llm_rate_limit_retry_after`
+  - Caching: `vocab_cache_max_size`, `vocab_cache_ttl_seconds`, `vocab_whisper_max_terms`
+  - Style learning: `style_learning_min_occurrences`, `style_learning_context_window`
+  - Database: `db_pool_size`
+- Updated all service files to use config values instead of hardcoded constants
+  - `stt.py`: WhisperSTT, StreamingWhisperSTT use settings for beam size, VAD parameters
+  - `llm.py`: OllamaProvider uses settings for timeout, circuit breaker, retry config
+  - `vocabulary.py`: VocabularyCache uses settings for cache size, TTL, max terms
+  - `style.py`: StyleLearner uses settings for min_occurrences
+  - `database.py`: Connection pool size loaded from settings
+- All code compiles successfully (Python)
 
 ---
 

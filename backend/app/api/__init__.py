@@ -171,6 +171,9 @@ async def websocket_audio_stream(
             "style_prompt": style_prompt,
         }
 
+        # Performance: Set user vocabulary on streaming STT for personalization (ADR-011)
+        streaming_stt.set_user_vocabulary(vocab_list)
+
         # Pre-build cleanup prompt for reuse
         from app.services.llm import CleanupContext, build_cleanup_prompt
         ctx = CleanupContext(

@@ -196,6 +196,10 @@ class WhisperSTT:
         Returns:
             Transcribed text string
         """
+        from app.config import get_settings
+
+        settings = get_settings()
+
         # Validate audio shape
         if audio.size == 0:
             raise ValidationError(
@@ -221,16 +225,16 @@ class WhisperSTT:
         try:
             segments, info = self.model.transcribe(
                 audio,
-                beam_size=5,
-                best_of=5,
+                beam_size=settings.stt_beam_size,
+                best_of=settings.stt_best_of,
                 language=language,
                 initial_prompt=initial_prompt,
                 condition_on_previous_text=True,
                 vad_filter=True,
                 vad_parameters={
-                    "threshold": 0.5,
-                    "min_speech_duration_ms": 250,
-                    "min_silence_duration_ms": 500,
+                    "threshold": settings.stt_vad_threshold,
+                    "min_speech_duration_ms": settings.stt_vad_min_speech_ms,
+                    "min_silence_duration_ms": settings.stt_vad_min_silence_ms,
                 },
             )
 
@@ -265,6 +269,10 @@ class WhisperSTT:
         Returns:
             Transcribed text with user vocabulary biasing
         """
+        from app.config import get_settings
+
+        settings = get_settings()
+
         # Get personalized prompt
         prompt = await build_whisper_prompt(user_id)
 
@@ -281,16 +289,16 @@ class WhisperSTT:
             None,
             lambda: self.model.transcribe(
                 audio,
-                beam_size=5,
-                best_of=5,
+                beam_size=settings.stt_beam_size,
+                best_of=settings.stt_best_of,
                 language=language,
                 initial_prompt=prompt,
                 condition_on_previous_text=True,
                 vad_filter=True,
                 vad_parameters={
-                    "threshold": 0.5,
-                    "min_speech_duration_ms": 250,
-                    "min_silence_duration_ms": 500,
+                    "threshold": settings.stt_vad_threshold,
+                    "min_speech_duration_ms": settings.stt_vad_min_speech_ms,
+                    "min_silence_duration_ms": settings.stt_vad_min_silence_ms,
                 },
             )
         )
@@ -357,6 +365,8 @@ class StreamingWhisperSTT:
 
     Buffers audio chunks and produces partial transcriptions
     that are updated as more audio arrives.
+
+    Performance: User vocabulary is cached and reused for each transcription.
     """
 
     def __init__(
@@ -375,11 +385,33 @@ class StreamingWhisperSTT:
             compute_type: Computation type
             download_root: Directory for model storage
         """
+        from app.config import get_settings
+
+        settings = get_settings()
         self.stt = WhisperSTT(model_size, device, compute_type, download_root)
         self.buffer: bytearray = bytearray()
         self.last_transcript = ""
-        self.chunk_size = 16000  # 1 second at 16kHz
-        self.process_interval = 8000  # Process every 500ms
+
+        # Performance: Use configurable chunk size and process interval
+        self.chunk_size = settings.stt_streaming_chunk_size  # Default: 1 second at 16kHz
+        self.process_interval = settings.stt_streaming_process_interval  # Default: 500ms
+
+        # Performance: Cached user vocabulary prompt (updated via set_user_vocabulary)
+        self._user_prompt: Optional[str] = None
+
+    def set_user_vocabulary(self, vocabulary: list[str]) -> None:
+        """
+        Set user vocabulary for personalization (ADR-011).
+
+        Args:
+            vocabulary: List of custom vocabulary words
+        """
+        if vocabulary:
+            # Build prompt from user vocabulary (limit to 50 terms for Whisper)
+            vocab_str = " ".join(vocabulary[:50])
+            self._user_prompt = f"{CODING_PROMPT}\nUser vocabulary: {vocab_str}"
+        else:
+            self._user_prompt = CODING_PROMPT
 
     async def process_chunk(
         self, audio_chunk: bytes
@@ -465,18 +497,30 @@ class StreamingWhisperSTT:
         return None
 
     def _transcribe_partial(self, audio: np.ndarray) -> str:
-        """Quick transcription for interim results."""
+        """
+        Quick transcription for interim results.
+
+        Performance: Uses cached user vocabulary prompt for personalization.
+        """
         segments, _ = self.stt.model.transcribe(
             audio,
             language="en",
             condition_on_previous_text=True,
             vad_filter=False,  # Skip VAD for speed
+            initial_prompt=self._user_prompt or CODING_PROMPT,  # Use user vocabulary
         )
         return " ".join(seg.text.strip() for seg in segments)
 
     def _transcribe_final(self, audio: np.ndarray) -> str:
-        """High-quality final transcription."""
-        result = self.stt.transcribe_final(audio)
+        """
+        High-quality final transcription.
+
+        Performance: Uses cached user vocabulary prompt for personalization.
+        """
+        result = self.stt.transcribe_final(
+            audio,
+            initial_prompt=self._user_prompt or CODING_PROMPT,  # Use user vocabulary
+        )
         return result.text
 
     def _compute_diff(self, old: str, new: str) -> list[TextChange]:

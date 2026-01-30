@@ -3,6 +3,7 @@ User vocabulary service for personalized STT (ADR-011).
 
 Provides vocabulary management, Whisper prompt generation, and corrections.
 """
+import asyncio
 import re
 from typing import Optional
 
@@ -12,23 +13,40 @@ from app.database import UserRepository, get_db
 
 
 class VocabularyCache:
-    """In-memory cache with TTL for user vocabulary prompts."""
+    """
+    In-memory cache with TTL for user vocabulary prompts.
 
-    def __init__(self, maxsize: int = 500, ttl: int = 3600):
+    Performance: Uses asyncio.Lock for async-safe cache access.
+    Configuration values loaded from settings.
+    """
+
+    def __init__(self, maxsize: int = None, ttl: int = None):
+        from app.config import get_settings
+
+        settings = get_settings()
+        # Use config values if not specified
+        if maxsize is None:
+            maxsize = settings.vocab_cache_max_size
+        if ttl is None:
+            ttl = settings.vocab_cache_ttl_seconds
+
         self._cache = TTLCache(maxsize=maxsize, ttl=ttl)
-        self._lock = None  # Not using threading lock for async
+        self._lock = asyncio.Lock()  # Async-safe lock for cache access
 
-    def get_user_prompt(self, user_id: str) -> Optional[str]:
+    async def get_user_prompt(self, user_id: str) -> Optional[str]:
         """Get cached vocabulary prompt for user."""
-        return self._cache.get(f"vocab:prompt:{user_id}")
+        async with self._lock:
+            return self._cache.get(f"vocab:prompt:{user_id}")
 
-    def set_user_prompt(self, user_id: str, prompt: str) -> None:
+    async def set_user_prompt(self, user_id: str, prompt: str) -> None:
         """Cache vocabulary prompt for user."""
-        self._cache[f"vocab:prompt:{user_id}"] = prompt
+        async with self._lock:
+            self._cache[f"vocab:prompt:{user_id}"] = prompt
 
-    def invalidate(self, user_id: str) -> None:
+    async def invalidate(self, user_id: str) -> None:
         """Invalidate cached vocabulary for user."""
-        self._cache.pop(f"vocab:prompt:{user_id}", None)
+        async with self._lock:
+            self._cache.pop(f"vocab:prompt:{user_id}", None)
 
 
 # Global cache instance
@@ -60,8 +78,8 @@ class UserVocabulary:
         Returns:
             Comma-separated list of vocabulary terms for Whisper biasing
         """
-        # Check cache first
-        cached = self._cache.get_user_prompt(self.user_id)
+        # Check cache first (async-safe)
+        cached = await self._cache.get_user_prompt(self.user_id)
         if cached:
             return cached
 
@@ -73,19 +91,23 @@ class UserVocabulary:
         # Prioritize high-boost terms
         terms = sorted(vocab, key=lambda x: -x.get("boost", 1.0))
 
-        # Format as comma-separated list (limit to 50 terms)
-        prompt_terms = [entry["word"] for entry in terms[:50]]
+        # Format as comma-separated list (use config for max terms)
+        from app.config import get_settings
+        settings = get_settings()
+        prompt_terms = [entry["word"] for entry in terms[:settings.vocab_whisper_max_terms]]
 
         prompt = ", ".join(prompt_terms) if prompt_terms else ""
 
-        # Cache the prompt
-        self._cache.set_user_prompt(self.user_id, prompt)
+        # Cache the prompt (async-safe)
+        await self._cache.set_user_prompt(self.user_id, prompt)
 
         return prompt
 
     async def apply_corrections(self, text: str) -> str:
         """
         Apply user's learned corrections to transcription.
+
+        Performance: Uses batch update for all matched corrections to avoid N+1 queries.
 
         Args:
             text: Raw transcription text
@@ -97,13 +119,19 @@ class UserVocabulary:
             repo = UserRepository(db, self.user_id)
             corrections = await repo.get_corrections()
 
+        # Track which corrections were applied for batch update
+        matched_corrections = []
+
         for correction in corrections:
             # Case-insensitive replacement
             pattern = re.compile(re.escape(correction["spoken"]), re.IGNORECASE)
             if pattern.search(text):
                 text = pattern.sub(correction["corrected"], text)
-                # Increment occurrence count
-                await self._increment_correction_count(correction["spoken"])
+                matched_corrections.append(correction["spoken"])
+
+        # Performance: Batch update all matched corrections in one DB transaction
+        if matched_corrections:
+            await self._batch_increment_correction_counts(matched_corrections)
 
         return text
 
@@ -126,8 +154,8 @@ class UserVocabulary:
             repo = UserRepository(db, self.user_id)
             await repo.learn_correction(original, corrected, auto_learned=True)
 
-        # Invalidate vocabulary cache
-        self._cache.invalidate(self.user_id)
+        # Invalidate vocabulary cache (async-safe)
+        await self._cache.invalidate(self.user_id)
 
     async def add_word(
         self,
@@ -149,8 +177,8 @@ class UserVocabulary:
             repo = UserRepository(db, self.user_id)
             await repo.add_vocabulary_word(word, category, boost, pronunciation_hint)
 
-        # Invalidate vocabulary cache
-        self._cache.invalidate(self.user_id)
+        # Invalidate vocabulary cache (async-safe)
+        await self._cache.invalidate(self.user_id)
 
     async def delete_word(self, word: str) -> bool:
         """
@@ -167,7 +195,7 @@ class UserVocabulary:
             deleted = await repo.delete_vocabulary_word(word)
 
         if deleted:
-            self._cache.invalidate(self.user_id)
+            await self._cache.invalidate(self.user_id)
 
         return deleted
 
@@ -193,8 +221,32 @@ class UserVocabulary:
             repo = UserRepository(db, self.user_id)
             return await repo.get_corrections()
 
+    async def _batch_increment_correction_counts(self, spoken_list: list[str]) -> None:
+        """
+        Batch increment occurrence counts for multiple corrections.
+
+        Performance: Updates all matched corrections in a single transaction
+        to avoid N+1 query problem during transcription.
+
+        Args:
+            spoken_list: List of spoken terms that were matched/applied
+        """
+        async with await get_db() as db:
+            for spoken in spoken_list:
+                await db.execute(
+                    """UPDATE vocabulary_corrections
+                       SET occurrences = occurrences + 1
+                       WHERE user_id = ? AND spoken = ?""",
+                    (self.user_id, spoken)
+                )
+            await db.commit()
+
     async def _increment_correction_count(self, spoken: str) -> None:
-        """Increment the occurrence count for a correction."""
+        """
+        Increment the occurrence count for a single correction.
+
+        Note: For transcription hot path, use _batch_increment_correction_counts instead.
+        """
         async with await get_db() as db:
             await db.execute(
                 """UPDATE vocabulary_corrections

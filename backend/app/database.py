@@ -26,7 +26,8 @@ DATABASE_PATH = DATABASE_DIR / "vtthought.db"
 
 # Performance: Connection pool (reduces connection overhead)
 # SQLite with WAL mode supports multiple readers efficiently
-_pool_size: int = 5
+# Pool size loaded from config (default: 5)
+_pool_size: int = settings.db_pool_size
 _connection_pool: list[aiosqlite.Connection] = []
 _pool_lock = asyncio.Lock()
 _pool_initialized = False

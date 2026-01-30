@@ -95,20 +95,26 @@ class OllamaProvider(BaseLLMProvider):
         base_url: str = "http://localhost:11434",
         model: str = "llama3.1:8b",
     ) -> None:
+        from app.config import get_settings
+
+        settings = get_settings()
         self.base_url = base_url.rstrip("/")
         self.model = model
         self._client: Optional[httpx.AsyncClient] = None
         self._circuit_breaker = get_circuit_breaker(
             name="ollama",
-            failure_threshold=3,
-            reset_timeout=60.0,
+            failure_threshold=settings.llm_circuit_failure_threshold,
+            reset_timeout=settings.llm_circuit_reset_timeout,
         )
 
     @property
     def client(self) -> httpx.AsyncClient:
         """Lazy-create HTTP client."""
         if self._client is None:
-            self._client = httpx.AsyncClient(timeout=120.0)
+            from app.config import get_settings
+
+            settings = get_settings()
+            self._client = httpx.AsyncClient(timeout=settings.llm_http_timeout)
         return self._client
 
     async def close(self) -> None:
@@ -119,6 +125,10 @@ class OllamaProvider(BaseLLMProvider):
 
     async def complete(self, prompt: str) -> str:
         """Get completion from Ollama with error handling."""
+        from app.config import get_settings
+
+        settings = get_settings()
+
         async def _do_complete() -> str:
             try:
                 response = await self.client.post(
@@ -128,8 +138,8 @@ class OllamaProvider(BaseLLMProvider):
                         "prompt": prompt,
                         "stream": False,
                         "options": {
-                            "temperature": 0.1,
-                            "num_predict": 200,
+                            "temperature": settings.llm_temperature,
+                            "num_predict": settings.llm_max_tokens,
                         }
                     },
                 )
@@ -151,7 +161,7 @@ class OllamaProvider(BaseLLMProvider):
                 if e.response.status_code == 429:
                     raise RateLimitError(
                         message="Ollama is rate limited",
-                        retry_after=30.0,
+                        retry_after=settings.llm_rate_limit_retry_after,
                     ) from e
                 raise BackendError(
                     message=f"Ollama returned error: {e.response.status_code}",
@@ -161,11 +171,18 @@ class OllamaProvider(BaseLLMProvider):
 
         return await retry_with_backoff(
             _do_complete,
-            config=RetryConfig(max_attempts=3, base_delay=1.0),
+            config=RetryConfig(
+                max_attempts=settings.llm_retry_max_attempts,
+                base_delay=settings.llm_retry_base_delay,
+            ),
         )
 
     async def stream(self, prompt: str) -> AsyncIterator[str]:
         """Stream completion from Ollama with error handling."""
+        from app.config import get_settings
+
+        settings = get_settings()
+
         try:
             async with self.client.stream(
                 "POST",
@@ -175,8 +192,8 @@ class OllamaProvider(BaseLLMProvider):
                     "prompt": prompt,
                     "stream": True,
                     "options": {
-                        "temperature": 0.1,
-                        "num_predict": 200,
+                        "temperature": settings.llm_temperature,
+                        "num_predict": settings.llm_max_tokens,
                     }
                 },
             ) as response:
@@ -207,7 +224,7 @@ class OllamaProvider(BaseLLMProvider):
             if e.response.status_code == 429:
                 raise RateLimitError(
                     message="Ollama is rate limited",
-                    retry_after=30.0,
+                    retry_after=settings.llm_rate_limit_retry_after,
                 ) from e
             raise BackendError(
                 message=f"Ollama returned error: {e.response.status_code}",
