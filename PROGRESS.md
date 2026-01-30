@@ -97,39 +97,21 @@ Voice-to-code VS Code extension with Docker backend for speech-to-text transcrip
    - [x] Extension UI for managing commands
    - [x] Integration with command parser
 
-3. **Manual Style Preferences Editor** (Priority: LOW)
-   - [ ] Allow manual override of learned style preferences
-   - [ ] Currently only automatic learning
+### Future Enhancements (Priority: TBD)
 
-### Next Up - Post ADR-011
+These items may be addressed based on user feedback during beta testing:
 
-4. **Integration Tests** (Priority: MEDIUM)
-   - [ ] Tests for vocabulary/corrections/style learning
-   - [ ] Tests exist for core WebSocket/STT
-
-5. **Cleanup Technical Debt**
-   - [ ] Remove outdated TODO comment in `backend/app/services/llm.py:555`
-
-### Future Phases
-
-- ADR-012: Push-to-Talk activation (partially done)
-- ADR-013: Extension UI refinement
-- ADR-024: Versioning and API compatibility
-
-## Session History
-
-| Session | Date | Focus | Status |
-|---------|------|-------|--------|
-| 1-15 | Earlier | Core architecture implementation | Complete |
-| 16 | Jan 30 | Extension UI for vocabulary/style management | Complete |
-| 17 | Jan 30 | Performance tuning - streaming pipeline optimization | Complete |
-| 18 | Jan 30 | User preferences editor UI | Complete |
-| 19 | Jan 30 | Custom voice commands UI and backend integration | Complete |
+1. **Manual Style Preferences Editor** - Allow manual override of learned style preferences
+2. **Integration Tests** - Tests for vocabulary/corrections/style learning
+3. **Additional STT Engines** - Support for Deepgram as fallback (ADR-005)
+4. **Voice Command UI** - Visual command feedback and help overlay
 
 ## Statistics
 
-- **Backend LOC**: ~2,500 Python
-- **Extension LOC**: ~1,800 TypeScript
-- **Test Coverage**: Core WebSocket/STT tested, ADR-011 features untested
+- **Backend LOC**: ~6,200 Python
+- **Extension LOC**: ~6,000 TypeScript
+- **Test Coverage**: Integration tests for WebSocket/STT, real audio tests
 - **Database Tables**: 6 (users, user_preferences, user_vocabulary, vocabulary_corrections, user_voice_commands, user_style_preferences)
-- **API Endpoints**: 25+
+- **API Endpoints**: 30+
+- **Voice Commands**: 38 commands across all categories
+- **ADRs Implemented**: 16 (ADR-001 through ADR-024)
