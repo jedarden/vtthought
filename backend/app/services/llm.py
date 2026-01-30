@@ -551,13 +551,12 @@ class TranscriptionCleaner:
         if ctx.learned_corrections:
             cleaned = self._apply_corrections(cleaned, ctx.learned_corrections)
 
-        # Parse voice commands (placeholder - will be implemented with ADR-008)
-        commands = []  # TODO: Implement voice command parsing
-
+        # Note: Voice commands are parsed in the WebSocket endpoint (ADR-008),
+        # not here. The cleanup() method focuses on text cleanup only.
         return CleanupResult(
             cleaned_text=cleaned,
             raw_text=ctx.raw_transcription,
-            commands=commands,
+            commands=[],  # Commands parsed by WebSocket handler
         )
 
     async def cleanup_stream(
