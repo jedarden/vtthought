@@ -599,6 +599,12 @@
   - `database.py`: Connection pool size loaded from settings
 - All code compiles successfully (Python)
 
+### Session 18 - Code Quality Improvements
+- Removed stale TODO comment in llm.py
+  - Voice command parsing (ADR-008) is implemented in WebSocket endpoint
+  - Updated comment to clarify architectural decision
+  - Code syntax validation passed
+
 ---
 
 ---
