@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import { VoiceInputViewProvider } from './voiceInputViewProvider';
 import { AudioStreamer } from './audioStreamer';
+import { DictationHandler } from './textInsertion';
 
 /**
  * VTThought Extension State
@@ -30,6 +31,9 @@ export class VTThoughtExtension {
 
     // Audio Streamer for WebSocket communication
     private audioStreamer: AudioStreamer | null = null;
+
+    // Dictation handler for text insertion
+    private dictationHandler: DictationHandler | null = null;
 
     constructor(context: vscode.ExtensionContext) {
         this.context = context;
@@ -75,6 +79,12 @@ export class VTThoughtExtension {
         });
 
         this.updateStatusDisplay();
+
+        // Create dictation handler
+        this.dictationHandler = new DictationHandler();
+        this.context.subscriptions.push({
+            dispose: () => this.dictationHandler?.dispose()
+        });
     }
 
     /**
@@ -181,6 +191,11 @@ export class VTThoughtExtension {
     private startRecording(): void {
         this.log('Starting recording...');
 
+        // Send start signal to backend
+        if (this.audioStreamer?.isConnected) {
+            this.audioStreamer.startRecording();
+        }
+
         // Start audio capture in WebView
         this.voiceInputViewProvider.startRecording();
 
@@ -196,9 +211,9 @@ export class VTThoughtExtension {
         // Stop audio capture in WebView
         this.voiceInputViewProvider.stopRecording();
 
-        // Send end-of-stream signal to backend
+        // Send stop signal to backend
         if (this.audioStreamer?.isConnected) {
-            this.audioStreamer.sendEndOfStream();
+            this.audioStreamer.stopRecording();
         }
 
         vscode.window.showInformationMessage('VTThought: Recording stopped');
@@ -252,6 +267,12 @@ export class VTThoughtExtension {
                 onError: (error) => {
                     this.log(`WebSocket error: ${error.message}`);
                     vscode.window.showErrorMessage(`VTThought: WebSocket error - ${error.message}`);
+                },
+                onMessage: async (message) => {
+                    // Handle server messages (interim, streaming, final, error)
+                    if (this.dictationHandler) {
+                        await this.dictationHandler.handleMessage(message);
+                    }
                 }
             });
 

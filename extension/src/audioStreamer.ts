@@ -2,7 +2,11 @@
  * Audio Streamer
  * Handles streaming audio data to the backend via WebSocket
  * Per ADR-004: Audio Streaming Protocol
+ *
+ * Extended to handle interim/streaming/final messages (ADR-006, ADR-007)
  */
+
+import type { ServerMessage } from './textInsertion';
 
 export interface AudioStreamerOptions {
     readonly sampleRate: number;
@@ -13,11 +17,13 @@ export interface AudioStreamerEvents {
     onConnected?: () => void;
     onDisconnected?: () => void;
     onError?: (error: Error) => void;
+    onMessage?: (message: ServerMessage) => void;
 }
 
 /**
  * Audio Streamer Class
  * Converts Float32Array audio samples to PCM16 and streams via WebSocket
+ * Handles server messages for interim, streaming, and final results
  */
 export class AudioStreamer {
     private ws: WebSocket | null = null;
@@ -58,12 +64,28 @@ export class AudioStreamer {
                     this.events.onDisconnected?.();
                 };
 
+                this.ws.onmessage = (event) => {
+                    this.handleMessage(event);
+                };
+
             } catch (error) {
                 const err = error instanceof Error ? error : new Error('Failed to create WebSocket');
                 this.events.onError?.(err);
                 reject(err);
             }
         });
+    }
+
+    /**
+     * Handle incoming WebSocket message
+     */
+    private handleMessage(event: MessageEvent): void {
+        try {
+            const message = JSON.parse(event.data) as ServerMessage;
+            this.events.onMessage?.(message);
+        } catch (error) {
+            console.error('Failed to parse WebSocket message:', error);
+        }
     }
 
     /**
@@ -87,15 +109,43 @@ export class AudioStreamer {
     }
 
     /**
-     * Send end-of-stream signal
+     * Send control message to server
      */
-    public sendEndOfStream(): void {
+    public sendControl(type: string, data?: Record<string, unknown>): void {
         if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
-            return;
+            throw new Error('WebSocket is not connected');
         }
 
-        // Send empty buffer to signal end of stream
-        this.ws.send(new ArrayBuffer(0));
+        const message = { type, ...data };
+        this.ws.send(JSON.stringify(message));
+    }
+
+    /**
+     * Send start recording signal
+     */
+    public startRecording(): void {
+        this.sendControl('start');
+    }
+
+    /**
+     * Send stop recording signal
+     */
+    public stopRecording(): void {
+        this.sendControl('stop');
+    }
+
+    /**
+     * Send ping for heartbeat
+     */
+    public ping(): void {
+        this.sendControl('ping');
+    }
+
+    /**
+     * Send end-of-stream signal (deprecated - use stopRecording)
+     */
+    public sendEndOfStream(): void {
+        this.stopRecording();
     }
 
     /**

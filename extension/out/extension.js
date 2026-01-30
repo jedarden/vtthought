@@ -39,6 +39,7 @@ exports.deactivate = deactivate;
 const vscode = __importStar(require("vscode"));
 const voiceInputViewProvider_1 = require("./voiceInputViewProvider");
 const audioStreamer_1 = require("./audioStreamer");
+const textInsertion_1 = require("./textInsertion");
 /**
  * VTThought Extension Main Class
  */
@@ -46,6 +47,8 @@ class VTThoughtExtension {
     constructor(context) {
         // Audio Streamer for WebSocket communication
         this.audioStreamer = null;
+        // Dictation handler for text insertion
+        this.dictationHandler = null;
         this.context = context;
         this.outputChannel = vscode.window.createOutputChannel('VTThought');
         // Initialize state from configuration
@@ -76,6 +79,11 @@ class VTThoughtExtension {
             this.updateStatusDisplay();
         });
         this.updateStatusDisplay();
+        // Create dictation handler
+        this.dictationHandler = new textInsertion_1.DictationHandler();
+        this.context.subscriptions.push({
+            dispose: () => this.dictationHandler?.dispose()
+        });
     }
     /**
      * Activate the extension
@@ -155,6 +163,10 @@ class VTThoughtExtension {
      */
     startRecording() {
         this.log('Starting recording...');
+        // Send start signal to backend
+        if (this.audioStreamer?.isConnected) {
+            this.audioStreamer.startRecording();
+        }
         // Start audio capture in WebView
         this.voiceInputViewProvider.startRecording();
         vscode.window.showInformationMessage('VTThought: Recording started');
@@ -166,9 +178,9 @@ class VTThoughtExtension {
         this.log('Stopping recording...');
         // Stop audio capture in WebView
         this.voiceInputViewProvider.stopRecording();
-        // Send end-of-stream signal to backend
+        // Send stop signal to backend
         if (this.audioStreamer?.isConnected) {
-            this.audioStreamer.sendEndOfStream();
+            this.audioStreamer.stopRecording();
         }
         vscode.window.showInformationMessage('VTThought: Recording stopped');
     }
@@ -216,6 +228,12 @@ class VTThoughtExtension {
                 onError: (error) => {
                     this.log(`WebSocket error: ${error.message}`);
                     vscode.window.showErrorMessage(`VTThought: WebSocket error - ${error.message}`);
+                },
+                onMessage: async (message) => {
+                    // Handle server messages (interim, streaming, final, error)
+                    if (this.dictationHandler) {
+                        await this.dictationHandler.handleMessage(message);
+                    }
                 }
             });
             await this.audioStreamer.connect();
