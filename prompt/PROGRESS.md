@@ -209,13 +209,52 @@
   - [x] Updated `.env.example` with Google OAuth configuration
   - [x] Updated auth module to use Google OAuth config check (instead of GitHub)
   - [x] All code compiles successfully with new OAuth routes registered
+- [x] Extension UI for Vocabulary/Style Management (Session 16)
+  - [x] Created `extension/src/userPreferences.ts` module with:
+    - `UserPreferencesClient` for backend API communication
+    - `UserPreferencesManager` for QuickPick-based UI interactions
+    - Vocabulary management (add, remove, list terms with categories)
+    - Style preferences viewing (punctuation, capitalization, number format)
+    - Learned corrections viewing and management
+    - User preferences summary display
+    - User data export and deletion (GDPR compliance)
+    - Edit reporting for style learning
+  - [x] Created `extension/src/editDetection.ts` module with:
+    - `EditDetector` base class for tracking user edits to transcribed text
+    - `ReportingEditDetector` with callback for backend reporting
+    - `createEditDetector()` factory function for integration
+    - Configuration options (learning window, max track length, enabled)
+    - Automatic cleanup of old tracked insertions
+  - [x] Updated `extension/src/textInsertion.ts`:
+    - Added `getAnchor()` method to `InterimTextManager`
+    - Integrated edit detection in `DictationHandler.finalize()`
+    - Track insertions for potential edit learning
+  - [x] Updated `extension/package.json`:
+    - Added 7 new commands: manageVocabulary, showStylePreferences, showLearnedCorrections, showUserPreferences, exportUserData, deleteUserData
+    - Added 2 new settings: enableEditLearning, editLearningWindowMs
+  - [x] Updated `extension/src/extension.ts`:
+    - Added UserPreferencesManager initialization
+    - Added EditDetector initialization with configuration
+    - Registered all new preference management commands
+    - Added handler methods for each command
+  - [x] All code compiles successfully (TypeScript)
+  - [x] Features:
+    - Vocabulary management with categories (technical, project, names, acronyms, general)
+    - Optional phonetic hints for pronunciation guidance
+    - Bulk vocabulary term removal
+    - Style preferences viewing with descriptions
+    - Learned corrections listing with usage counts
+    - User data export for GDPR compliance
+    - Automatic edit detection for style learning
+    - 30-second learning window (configurable)
+    - Fire-and-forget background reporting
 
 ### In Progress
-- [ ] Extension UI for vocabulary/style management
+- [ ] Performance tuning with real audio testing
 
 ### Next Up
-- [ ] Extension UI for vocabulary/style management
 - [ ] Performance tuning with real audio testing
+- [ ] User testing and feedback collection
 
 ---
 
@@ -489,6 +528,46 @@
   - /api/auth/google (OAuth login initiation)
   - /api/auth/google/callback (OAuth callback handling)
   - /api/auth/config (OAuth configuration status)
+
+### Session 16 - Extension UI for Vocabulary/Style Management (ADR-011)
+- Implemented complete user preferences UI per ADR-011
+- Created extension/src/userPreferences.ts module:
+  - UserPreferencesClient for backend API communication
+    - getVocabulary, addVocabularyTerm, removeVocabularyTerm
+    - getLearnedCorrections, addLearnedCorrection, clearLearnedCorrections
+    - getStylePreferences, getUserPreferences
+    - updateUserPreferences, reportEditForLearning
+    - exportUserData, deleteUserData (GDPR compliance)
+  - UserPreferencesManager for QuickPick-based UI
+    - manageVocabulary: Add/remove terms with categories
+    - Vocabulary categories: technical, project, names, acronyms, general
+    - Optional phonetic hints for pronunciation
+    - Bulk removal support
+    - showStylePreferences: View learned style preferences
+    - showLearnedCorrections: View and clear learned corrections
+    - showUserPreferences: Display user settings summary
+    - exportUserData: Export all data as JSON
+    - deleteUserData: Delete all user data (with confirmation)
+- Created extension/src/editDetection.ts module:
+  - EditDetector base class for tracking user edits
+  - Tracks text insertions with timestamps and document URIs
+  - Detects edits within configurable learning window
+  - Automatic cleanup of old tracked insertions
+  - ReportingEditDetector with callback for backend reporting
+  - createEditDetector factory function for integration
+- Updated extension/src/textInsertion.ts:
+  - Added getAnchor() method to InterimTextManager
+  - Integrated edit detection in finalize() method
+  - Track insertions for potential edit learning
+- Updated extension/package.json:
+  - 7 new commands: manageVocabulary, showStylePreferences, showLearnedCorrections, showUserPreferences, exportUserData, deleteUserData
+  - 2 new settings: enableEditLearning (default: true), editLearningWindowMs (default: 30000)
+- Updated extension/src/extension.ts:
+  - Initialize UserPreferencesManager with token manager
+  - Initialize EditDetector with configuration from settings
+  - Register all new preference management commands
+  - Handler methods for each preference command
+- All code compiles successfully (TypeScript)
 
 ---
 

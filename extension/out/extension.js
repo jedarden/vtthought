@@ -44,6 +44,7 @@ const tokenManager_1 = require("./tokenManager");
 const setupFlow_1 = require("./setupFlow");
 const voiceCommands_1 = require("./voiceCommands");
 const voiceCommands_test_1 = require("./voiceCommands.test");
+const userPreferences_1 = require("./userPreferences");
 /**
  * VTThought Extension Main Class
  */
@@ -53,6 +54,11 @@ class VTThoughtExtension {
         this.audioStreamer = null;
         // Dictation handler for text insertion
         this.dictationHandler = null;
+        // User preferences manager (ADR-011)
+        this.resources = {
+            userPreferencesManager: null,
+            editDetector: null,
+        };
         this.context = context;
         this.outputChannel = vscode.window.createOutputChannel('VTThought');
         // Create token manager (ADR-002)
@@ -91,6 +97,24 @@ class VTThoughtExtension {
         this.context.subscriptions.push({
             dispose: () => this.dictationHandler?.dispose()
         });
+        // Create user preferences manager (ADR-011)
+        this.resources.userPreferencesManager = userPreferences_1.UserPreferencesManager.create(context, () => this.tokenManager.getAuthHeader());
+        this.context.subscriptions.push(this.resources.userPreferencesManager);
+        // Create edit detector for style learning (ADR-011)
+        const editConfig = vscode.workspace.getConfiguration('vtthought');
+        const editLearningEnabled = editConfig.get('enableEditLearning', true);
+        const editLearningWindow = editConfig.get('editLearningWindowMs', 30000);
+        if (editLearningEnabled) {
+            this.resources.editDetector = (0, userPreferences_1.createEditDetector)(this.resources.userPreferencesManager, {
+                enabled: true,
+                learningWindowMs: editLearningWindow,
+                maxTrackLength: 500,
+            });
+            if (this.resources.editDetector) {
+                this.context.subscriptions.push(this.resources.editDetector);
+                this.dictationHandler.setEditDetector(this.resources.editDetector);
+            }
+        }
     }
     /**
      * Activate the extension
@@ -188,6 +212,20 @@ class VTThoughtExtension {
             await this.testVoiceCommands();
         }), vscode.commands.registerCommand('vtthought.analyzeCommand', async () => {
             await this.analyzeVoiceCommand();
+        }), 
+        // User preferences commands (ADR-011)
+        vscode.commands.registerCommand('vtthought.manageVocabulary', async () => {
+            await this.manageVocabulary();
+        }), vscode.commands.registerCommand('vtthought.showStylePreferences', async () => {
+            await this.showStylePreferences();
+        }), vscode.commands.registerCommand('vtthought.showLearnedCorrections', async () => {
+            await this.showLearnedCorrections();
+        }), vscode.commands.registerCommand('vtthought.showUserPreferences', async () => {
+            await this.showUserPreferences();
+        }), vscode.commands.registerCommand('vtthought.exportUserData', async () => {
+            await this.exportUserData();
+        }), vscode.commands.registerCommand('vtthought.deleteUserData', async () => {
+            await this.deleteUserData();
         }));
         this.log('Commands registered');
     }
@@ -613,6 +651,66 @@ Backend URL: ${authStatus.backendUrl}
     log(message) {
         const timestamp = new Date().toISOString();
         this.outputChannel.appendLine(`[${timestamp}] ${message}`);
+    }
+    /**
+     * Manage vocabulary (ADR-011)
+     */
+    async manageVocabulary() {
+        if (!this.resources.userPreferencesManager) {
+            vscode.window.showErrorMessage('VTThought: User preferences not initialized');
+            return;
+        }
+        await this.resources.userPreferencesManager.manageVocabulary();
+    }
+    /**
+     * Show style preferences (ADR-011)
+     */
+    async showStylePreferences() {
+        if (!this.resources.userPreferencesManager) {
+            vscode.window.showErrorMessage('VTThought: User preferences not initialized');
+            return;
+        }
+        await this.resources.userPreferencesManager.showStylePreferences();
+    }
+    /**
+     * Show learned corrections (ADR-011)
+     */
+    async showLearnedCorrections() {
+        if (!this.resources.userPreferencesManager) {
+            vscode.window.showErrorMessage('VTThought: User preferences not initialized');
+            return;
+        }
+        await this.resources.userPreferencesManager.showLearnedCorrections();
+    }
+    /**
+     * Show user preferences (ADR-011)
+     */
+    async showUserPreferences() {
+        if (!this.resources.userPreferencesManager) {
+            vscode.window.showErrorMessage('VTThought: User preferences not initialized');
+            return;
+        }
+        await this.resources.userPreferencesManager.showUserPreferences();
+    }
+    /**
+     * Export user data (ADR-011)
+     */
+    async exportUserData() {
+        if (!this.resources.userPreferencesManager) {
+            vscode.window.showErrorMessage('VTThought: User preferences not initialized');
+            return;
+        }
+        await this.resources.userPreferencesManager.exportUserData();
+    }
+    /**
+     * Delete user data (ADR-011)
+     */
+    async deleteUserData() {
+        if (!this.resources.userPreferencesManager) {
+            vscode.window.showErrorMessage('VTThought: User preferences not initialized');
+            return;
+        }
+        await this.resources.userPreferencesManager.deleteUserData();
     }
 }
 exports.VTThoughtExtension = VTThoughtExtension;

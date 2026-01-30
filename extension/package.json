@@ -63,6 +63,30 @@
       {
         "command": "vtthought.analyzeCommand",
         "title": "VTThought: Analyze Voice Command"
+      },
+      {
+        "command": "vtthought.manageVocabulary",
+        "title": "VTThought: Manage Vocabulary"
+      },
+      {
+        "command": "vtthought.showStylePreferences",
+        "title": "VTThought: Show Style Preferences"
+      },
+      {
+        "command": "vtthought.showLearnedCorrections",
+        "title": "VTThought: Show Learned Corrections"
+      },
+      {
+        "command": "vtthought.showUserPreferences",
+        "title": "VTThought: Show User Preferences"
+      },
+      {
+        "command": "vtthought.exportUserData",
+        "title": "VTThought: Export User Data"
+      },
+      {
+        "command": "vtthought.deleteUserData",
+        "title": "VTThought: Delete User Data"
       }
     ],
     "keybindings": [
@@ -164,6 +188,16 @@
           "type": "boolean",
           "default": true,
           "description": "Show notifications when voice commands are executed"
+        },
+        "vtthought.enableEditLearning": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable automatic style learning from your edits to transcribed text"
+        },
+        "vtthought.editLearningWindowMs": {
+          "type": "number",
+          "default": 30000,
+          "description": "Time window after transcription during which edits are tracked for learning (milliseconds)"
         }
       }
     }

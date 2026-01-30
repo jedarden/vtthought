@@ -7,6 +7,7 @@
 
 import * as vscode from 'vscode';
 import { SetupFlow } from './setupFlow';
+import type { EditDetector } from './editDetection';
 
 /**
  * Server message types from backend WebSocket.
@@ -220,6 +221,13 @@ export class InterimTextManager {
         return this.anchor !== null;
     }
 
+    /**
+     * Get the anchor position for edit tracking.
+     */
+    getAnchor(): vscode.Position | null {
+        return this.anchor;
+    }
+
     dispose(): void {
         this.interimStyle.dispose();
     }
@@ -280,10 +288,20 @@ export class DictationHandler {
 
     private currentFocus: 'editor' | 'terminal' | 'other' = 'other';
     private context?: vscode.ExtensionContext;
+    private editDetector?: EditDetector;
 
     constructor(context?: vscode.ExtensionContext) {
         this.context = context;
         this.trackFocus();
+    }
+
+    /**
+     * Set the edit detector for learning user preferences.
+     *
+     * @param detector - The edit detector to use for tracking insertions
+     */
+    public setEditDetector(detector: EditDetector): void {
+        this.editDetector = detector;
     }
 
     /**
@@ -350,6 +368,18 @@ export class DictationHandler {
 
             case 'final':
                 await this.editorManager.finalize(editor);
+
+                // Track insertion for edit learning (ADR-011)
+                if (this.editDetector && msg.cleaned && msg.cleaned.length > 0) {
+                    const anchor = this.editorManager.getAnchor();
+                    if (anchor) {
+                        const range = new vscode.Range(
+                            anchor,
+                            anchor.translate(0, msg.cleaned.length)
+                        );
+                        this.editDetector.trackInsertion(msg.cleaned, range, editor.document.uri.toString());
+                    }
+                }
 
                 // First transcription celebration (ADR-017)
                 if (this.context && msg.cleaned && msg.cleaned.length > 0) {

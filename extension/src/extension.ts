@@ -6,6 +6,8 @@ import { TokenManager, getAuthStatus } from './tokenManager';
 import { SetupFlow } from './setupFlow';
 import { CommandParser, normalizeCommand } from './voiceCommands';
 import { runCommandParserTests, formatTestResults, createCommandTester } from './voiceCommands.test';
+import { UserPreferencesManager, createEditDetector } from './userPreferences';
+import { EditDetector } from './editDetection';
 
 /**
  * VTThought Extension State
@@ -15,6 +17,14 @@ interface VTThoughtState {
     isConnected: boolean;
     backendUrl: string;
     isAuthenticated: boolean;
+}
+
+/**
+ * VTThought Extension Resources
+ */
+interface VTThoughtResources {
+    userPreferencesManager: UserPreferencesManager | null;
+    editDetector: EditDetector | null;
 }
 
 /**
@@ -42,6 +52,12 @@ export class VTThoughtExtension {
 
     // Dictation handler for text insertion
     private dictationHandler: DictationHandler | null = null;
+
+    // User preferences manager (ADR-011)
+    private resources: VTThoughtResources = {
+        userPreferencesManager: null,
+        editDetector: null,
+    };
 
     constructor(context: vscode.ExtensionContext) {
         this.context = context;
@@ -97,6 +113,33 @@ export class VTThoughtExtension {
         this.context.subscriptions.push({
             dispose: () => this.dictationHandler?.dispose()
         });
+
+        // Create user preferences manager (ADR-011)
+        this.resources.userPreferencesManager = UserPreferencesManager.create(
+            context,
+            () => this.tokenManager.getAuthHeader()
+        );
+        this.context.subscriptions.push(this.resources.userPreferencesManager);
+
+        // Create edit detector for style learning (ADR-011)
+        const editConfig = vscode.workspace.getConfiguration('vtthought');
+        const editLearningEnabled = editConfig.get('enableEditLearning', true);
+        const editLearningWindow = editConfig.get('editLearningWindowMs', 30000);
+
+        if (editLearningEnabled) {
+            this.resources.editDetector = createEditDetector(
+                this.resources.userPreferencesManager,
+                {
+                    enabled: true,
+                    learningWindowMs: editLearningWindow,
+                    maxTrackLength: 500,
+                }
+            );
+            if (this.resources.editDetector) {
+                this.context.subscriptions.push(this.resources.editDetector);
+                this.dictationHandler.setEditDetector(this.resources.editDetector);
+            }
+        }
     }
 
     /**
@@ -220,6 +263,25 @@ export class VTThoughtExtension {
             }),
             vscode.commands.registerCommand('vtthought.analyzeCommand', async () => {
                 await this.analyzeVoiceCommand();
+            }),
+            // User preferences commands (ADR-011)
+            vscode.commands.registerCommand('vtthought.manageVocabulary', async () => {
+                await this.manageVocabulary();
+            }),
+            vscode.commands.registerCommand('vtthought.showStylePreferences', async () => {
+                await this.showStylePreferences();
+            }),
+            vscode.commands.registerCommand('vtthought.showLearnedCorrections', async () => {
+                await this.showLearnedCorrections();
+            }),
+            vscode.commands.registerCommand('vtthought.showUserPreferences', async () => {
+                await this.showUserPreferences();
+            }),
+            vscode.commands.registerCommand('vtthought.exportUserData', async () => {
+                await this.exportUserData();
+            }),
+            vscode.commands.registerCommand('vtthought.deleteUserData', async () => {
+                await this.deleteUserData();
             })
         );
 
@@ -735,6 +797,72 @@ Backend URL: ${authStatus.backendUrl}
     private log(message: string): void {
         const timestamp = new Date().toISOString();
         this.outputChannel.appendLine(`[${timestamp}] ${message}`);
+    }
+
+    /**
+     * Manage vocabulary (ADR-011)
+     */
+    private async manageVocabulary(): Promise<void> {
+        if (!this.resources.userPreferencesManager) {
+            vscode.window.showErrorMessage('VTThought: User preferences not initialized');
+            return;
+        }
+        await this.resources.userPreferencesManager.manageVocabulary();
+    }
+
+    /**
+     * Show style preferences (ADR-011)
+     */
+    private async showStylePreferences(): Promise<void> {
+        if (!this.resources.userPreferencesManager) {
+            vscode.window.showErrorMessage('VTThought: User preferences not initialized');
+            return;
+        }
+        await this.resources.userPreferencesManager.showStylePreferences();
+    }
+
+    /**
+     * Show learned corrections (ADR-011)
+     */
+    private async showLearnedCorrections(): Promise<void> {
+        if (!this.resources.userPreferencesManager) {
+            vscode.window.showErrorMessage('VTThought: User preferences not initialized');
+            return;
+        }
+        await this.resources.userPreferencesManager.showLearnedCorrections();
+    }
+
+    /**
+     * Show user preferences (ADR-011)
+     */
+    private async showUserPreferences(): Promise<void> {
+        if (!this.resources.userPreferencesManager) {
+            vscode.window.showErrorMessage('VTThought: User preferences not initialized');
+            return;
+        }
+        await this.resources.userPreferencesManager.showUserPreferences();
+    }
+
+    /**
+     * Export user data (ADR-011)
+     */
+    private async exportUserData(): Promise<void> {
+        if (!this.resources.userPreferencesManager) {
+            vscode.window.showErrorMessage('VTThought: User preferences not initialized');
+            return;
+        }
+        await this.resources.userPreferencesManager.exportUserData();
+    }
+
+    /**
+     * Delete user data (ADR-011)
+     */
+    private async deleteUserData(): Promise<void> {
+        if (!this.resources.userPreferencesManager) {
+            vscode.window.showErrorMessage('VTThought: User preferences not initialized');
+            return;
+        }
+        await this.resources.userPreferencesManager.deleteUserData();
     }
 }
 
