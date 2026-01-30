@@ -2,7 +2,7 @@
 
 > Located in `prompt/` - updated by marathon agent each iteration.
 
-## Current Status: Google OAuth Integration Complete (ADR-002)
+## Current Status: Version Negotiation Complete (ADR-024)
 
 ### Completed
 - [x] Created GitHub repository (jedarden/vtthought)
@@ -248,6 +248,22 @@
     - Automatic edit detection for style learning
     - 30-second learning window (configurable)
     - Fire-and-forget background reporting
+- [x] Version Negotiation (ADR-024) - Session 19
+  - [x] Backend version endpoint (`GET /api/version`)
+    - `VersionInfo` model with backend_version, api_versions, protocol_versions, min_extension_version
+    - Feature list: streaming, vocabulary, voice_commands, style_learning, oauth, corrections, multi_user
+  - [x] Extension version checking (`extension/src/versionCheck.ts`)
+    - `VersionChecker` class for compatibility validation
+    - Semantic version comparison (compareSemver)
+    - `FeatureDetector` class for graceful degradation
+    - `handleCompatibilityError` with user-friendly dialog
+    - `logCompatibilityResult` for output channel logging
+  - [x] Extension integration
+    - Added `backendFeatures: string[]` to state for feature detection
+    - Updated `connectBackend()` to check /api/version before connecting
+    - Compatibility errors shown with options: Update Extension, Check Backend, Connect Anyway
+    - Features logged on successful connection
+  - [x] All code compiles successfully (Python and TypeScript)
 
 ### In Progress
 - [ ] User testing and feedback collection
@@ -604,6 +620,26 @@
   - Voice command parsing (ADR-008) is implemented in WebSocket endpoint
   - Updated comment to clarify architectural decision
   - Code syntax validation passed
+
+### Session 19 - Version Negotiation (ADR-024)
+- Implemented backend version endpoint
+  - Created `VersionInfo` data model in `backend/app/models/__init__.py`
+  - Added `GET /api/version` endpoint in `backend/app/api/__init__.py`
+  - Returns: backend_version, api_versions, protocol_versions, min_extension_version, features
+  - Current version: 0.1.0 with API v1, protocol 1.0
+  - Features: streaming, vocabulary, voice_commands, style_learning, oauth, corrections, multi_user
+- Implemented extension version checking module
+  - Created `extension/src/versionCheck.ts` with version negotiation logic
+  - `VersionChecker` class with semantic version comparison
+  - `FeatureDetector` class for graceful degradation based on backend capabilities
+  - `handleCompatibilityError()` with user-friendly error dialog
+  - `logCompatibilityResult()` for output channel logging
+- Integrated version checking into extension connection flow
+  - Added `backendFeatures: string[]` to VTThoughtState
+  - Updated `connectBackend()` to check /api/version before connecting
+  - Shows user dialog on incompatibility with options: Update Extension, Check Backend, Connect Anyway
+  - Logs available features on successful connection for feature detection
+- All code compiles successfully (Python and TypeScript)
 
 ---
 

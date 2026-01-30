@@ -18,7 +18,7 @@ from app.api import auth as auth_api
 from app.api import user as user_api
 from app.auth import validate_extension_token, get_default_user
 from app.config import get_settings
-from app.models import HealthResponse
+from app.models import HealthResponse, VersionInfo
 from app.models.transcription import (
     create_error_message,
     create_final_message,
@@ -86,6 +86,45 @@ async def health_check() -> HealthResponse:
         version=settings.app_version,
         environment=settings.environment,
     )
+
+
+# Version configuration (ADR-024)
+# This defines the current API version and compatibility matrix
+CURRENT_VERSION = VersionInfo(
+    backend_version="0.1.0",  # Matches app_version in config.py
+    api_versions=["v1"],
+    protocol_versions=["1.0"],
+    min_extension_version="0.1.0",
+    features=[
+        "streaming",  # Streaming STT with interim results
+        "vocabulary",  # User-specific vocabulary (ADR-011)
+        "voice_commands",  # Voice command parsing (ADR-008)
+        "style_learning",  # Style preference learning (ADR-011)
+        "oauth",  # Google OAuth authentication (ADR-002)
+        "corrections",  # Learned corrections (ADR-011)
+        "multi_user",  # Multi-user support with SQLite
+    ],
+)
+
+
+@router.get("/version", response_model=VersionInfo)
+async def get_version() -> VersionInfo:
+    """
+    Version and compatibility endpoint (ADR-024).
+
+    Returns backend version, supported API versions, and feature list.
+    Used by VS Code extension for:
+    - Compatibility checking
+    - Feature detection (graceful degradation)
+    - Version display in UI
+
+    The extension should check:
+    1. Extension version >= min_extension_version
+    2. Required API version is in api_versions
+    3. Required protocol version is in protocol_versions
+    4. Features are available before using them
+    """
+    return CURRENT_VERSION
 
 
 @router.websocket("/ws/audio")

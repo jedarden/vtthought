@@ -8,6 +8,13 @@ import { CommandParser, normalizeCommand } from './voiceCommands';
 import { runCommandParserTests, formatTestResults, createCommandTester } from './voiceCommands.test';
 import { UserPreferencesManager, createEditDetector } from './userPreferences';
 import { EditDetector } from './editDetection';
+import {
+    VersionChecker,
+    FeatureDetector,
+    handleCompatibilityError,
+    logCompatibilityResult,
+    type CompatibilityResult
+} from './versionCheck';
 
 /**
  * VTThought Extension State
@@ -17,6 +24,7 @@ interface VTThoughtState {
     isConnected: boolean;
     backendUrl: string;
     isAuthenticated: boolean;
+    backendFeatures: string[];  // Available features from backend (ADR-024)
 }
 
 /**
@@ -72,7 +80,8 @@ export class VTThoughtExtension {
             isRecording: false,
             isConnected: false,
             backendUrl: config.get('backendUrl', 'http://localhost:8000'),
-            isAuthenticated: false
+            isAuthenticated: false,
+            backendFeatures: []  // Populated on successful connection (ADR-024)
         };
 
         // Create status bar items
@@ -658,13 +667,28 @@ Backend URL: ${authStatus.backendUrl}
         this.log(`Connecting to backend: ${apiUrl}`);
 
         try {
-            // First, verify backend is reachable via health check
             const authHeader = await this.tokenManager.getAuthHeader();
             const headers: Record<string, string> = {};
             if (authHeader) {
                 headers['Authorization'] = authHeader;
             }
 
+            // Step 1: Check compatibility via /api/version endpoint (ADR-024)
+            const checker = new VersionChecker();
+            const versionResult = await checker.checkCompatibility(apiUrl, authHeader);
+            logCompatibilityResult(versionResult, this.outputChannel);
+
+            if (!versionResult.compatible) {
+                await handleCompatibilityError(versionResult);
+                // If user chose to connect anyway, we continue
+                // If they cancelled, handleCompatibilityError throws
+            }
+
+            // Store available features for feature detection
+            this.state.backendFeatures = versionResult.features;
+            this.log(`Backend features: ${versionResult.features.join(', ')}`);
+
+            // Step 2: Verify backend health
             const response = await fetch(`${apiUrl}/api/health`, { headers });
 
             if (!response.ok) {
@@ -685,7 +709,7 @@ Backend URL: ${authStatus.backendUrl}
                 throw new Error(`Health check failed: ${response.status}`);
             }
 
-            // Establish WebSocket connection
+            // Step 3: Establish WebSocket connection
             this.audioStreamer = new AudioStreamer(wsUrl, { sampleRate: 16000, channels: 1 }, {
                 onConnected: () => {
                     this.state.isConnected = true;

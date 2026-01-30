@@ -3,6 +3,8 @@ VTThought Data Models
 
 Pydantic models for request/response validation.
 """
+from typing import List
+
 from pydantic import BaseModel
 
 
@@ -12,6 +14,16 @@ class HealthResponse(BaseModel):
     status: str
     version: str
     environment: str
+
+
+class VersionInfo(BaseModel):
+    """Version and compatibility information (ADR-024)."""
+
+    backend_version: str  # "1.0.0"
+    api_versions: List[str]  # ["v1", "v2"]
+    protocol_versions: List[str]  # ["1.0", "1.1"]
+    min_extension_version: str  # "1.0.0" - minimum compatible extension
+    features: List[str]  # ["streaming", "vocabulary", "voice_commands"]
 
 
 class TranscriptionRequest(BaseModel):
