@@ -1,0 +1,61 @@
+# VTThought Docker Compose Configuration (CPU-only)
+# Development environment without GPU support
+# Suitable for CI/CD and testing on systems without NVIDIA GPUs
+services:
+  # Backend Service
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.cpu
+    container_name: vtthought-backend
+    ports:
+      - "8000:8000"
+    environment:
+      - ENVIRONMENT=development
+      - DEBUG=true
+      - LOG_LEVEL=INFO
+      # STT Configuration (ADR-005) - CPU mode
+      - STT_ENGINE=faster-whisper
+      - STT_DEVICE=cpu
+      - STT_COMPUTE_TYPE=int8
+      - STT_MODEL_PATH=/home/vtthought/.cache/whisper
+      # LLM Configuration (ADR-006)
+      - LLM_PROVIDER=ollama
+      - LLM_BASE_URL=http://ollama:11434
+      - LLM_MODEL=llama3.1:8b
+    volumes:
+      # Mount app directory for hot reload during development
+      - ./backend/app:/app/app
+      # Persist models cache
+      - vtthought-models:/home/vtthought/.cache
+    networks:
+      - vtthought-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+
+  # Ollama LLM Service (ADR-006) - CPU mode
+  ollama:
+    image: ollama/ollama:latest
+    container_name: vtthought-ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - vtthought-ollama:/root/.ollama
+    networks:
+      - vtthought-network
+    restart: unless-stopped
+    # Pull model on startup
+    entrypoint: ["/bin/sh", "-c", "ollama serve & sleep 5 && ollama pull llama3.1:8b && wait"]
+
+networks:
+  vtthought-network:
+    driver: bridge
+
+volumes:
+  vtthought-models:
+  vtthought-ollama:

@@ -182,9 +182,19 @@
   - [x] Optimized SQLite pragmas (WAL mode, cache size, mmap)
   - [x] Reduced blocking DB queries during transcription hot path
   - [x] Added performance documentation to SessionState
+- [x] Docker Build Verification (Session 14)
+  - [x] Created CPU-only Dockerfile variant (Dockerfile.cpu)
+  - [x] Created CPU-only docker-compose configuration (docker-compose.cpu.yml)
+  - [x] Created Dockerfile validation script (validate_dockerfile.py)
+  - [x] Validated all Dockerfiles pass checks:
+    - Original GPU-enabled Dockerfile: PASS
+    - CPU-only Dockerfile: PASS
+  - [x] Security checks: non-root user, healthcheck, apt cleanup
+  - [x] Best practices: multi-stage builds, cache optimization
 
 ### In Progress
-- [ ] Docker build verification (requires Docker daemon)
+- [ ] OAuth integration (GitHub) - ADR-002
+- [ ] Extension UI for vocabulary/style management
 
 ### Next Up
 - [ ] OAuth integration (GitHub) - ADR-002
@@ -420,6 +430,23 @@
   - Prevents unbounded memory growth
   - Automatic reset with warning when limit exceeded
 - Documented performance optimizations in code comments
+
+### Session 14 - Docker Build Verification
+- Created CPU-only Dockerfile variant (Dockerfile.cpu)
+  - Based on python:3.12-slim (lighter than nvidia/cuda base)
+  - All required system dependencies (ffmpeg, audio libs)
+  - Non-root user (vtthought) for security
+  - Healthcheck endpoint for container orchestration
+- Created CPU-only docker-compose configuration (docker-compose.cpu.yml)
+  - Removed GPU reservation requirements
+  - Updated STT_DEVICE=cpu and STT_COMPUTE_TYPE=int8
+  - Suitable for CI/CD and development without GPU
+- Created Dockerfile validation script (validate_dockerfile.py)
+  - Validates syntax without requiring Docker daemon
+  - Checks for required instructions (FROM, WORKDIR, COPY, EXPOSE, CMD)
+  - Security checks (non-root user)
+  - Best practices (HEALTHCHECK, apt-get cleanup)
+- All Dockerfiles validated: PASS
 
 ---
 
