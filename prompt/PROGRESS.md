@@ -2,7 +2,7 @@
 
 > Located in `prompt/` - updated by marathon agent each iteration.
 
-## Current Status: Authentication Implementation Complete (ADR-002)
+## Current Status: Voice Commands Refined (ADR-008)
 
 ### Completed
 - [x] Created GitHub repository (jedarden/vtthought)
@@ -141,6 +141,28 @@
   - [x] Fixed undefined 'user' variable in WebSocket handle_text_message
   - [x] Added user parameter to handle_text_message function signature
   - [x] Fixed pytest async configuration with @pytest.mark.asyncio decorators
+- [x] Voice Commands Refinement (Session 13)
+  - [x] Added 15+ new voice commands:
+    - Editing: redo, copy, cut, paste, select word/line, duplicate line, move up/down, indent/outdent
+    - Navigation: scroll up/down/top/bottom, go to start/end
+    - VS Code: save all, close all, new terminal, file explorer, search, toggle sidebar, format document, toggle word wrap
+  - [x] Extended homophone dictionary with 10+ new disambiguations
+  - [x] Configurable command system via VS Code settings:
+    - `vtthought.customCommands` - Add custom voice commands
+    - `vtthought.disabledCommands` - Disable specific commands
+    - `vtthought.commandDetection` - Choose trailing or anywhere detection mode
+    - `vtthought.showCommandFeedback` - Toggle command execution notifications
+  - [x] Voice command test utilities:
+    - `extension/src/voiceCommands.test.ts` with test framework
+    - Test cases for all command categories
+    - Interactive command analysis tool
+    - Command listing functionality
+  - [x] New extension commands:
+    - `vtthought.listCommands` - List all available voice commands
+    - `vtthought.testCommands` - Run voice command parser tests
+    - `vtthought.analyzeCommand` - Analyze text for voice commands
+  - [x] Updated backend `commands.py` with matching command set (38 commands total)
+  - [x] All code compiles successfully (Python and TypeScript)
 
 ### In Progress
 - [ ] Testing with real audio input (requires Whisper model download ~150MB)
@@ -148,7 +170,6 @@
 - [ ] Docker build verification (requires Docker daemon)
 
 ### Next Up
-- [ ] Voice command refinement and testing
 - [ ] OAuth integration (GitHub) - ADR-002
 - [ ] Extension UI for vocabulary/style management
 - [ ] Performance tuning with real audio testing
@@ -327,6 +348,30 @@
 - Fixed pytest async configuration for integration tests
   - Added @pytest.mark.asyncio decorators to test functions
   - Tests now properly configured for pytest-asyncio
+- All code compiles successfully (Python and TypeScript)
+
+### Session 13 - Voice Commands Refinement (ADR-008)
+- Added 15+ new voice commands across all categories:
+  - Editing: redo, copy, cut, paste, select word/line, duplicate line, move line up/down, indent/outdent
+  - Navigation: scroll up/down/top/bottom, go to start/end
+  - VS Code: save all, close all, new terminal, file explorer, search, toggle sidebar, format document, toggle word wrap
+- Extended homophone dictionary with 10+ new disambiguations (redo, copy, cut, paste, select, save, close, scroll, format, indent, tab)
+- Implemented configurable command system via VS Code settings:
+  - Custom commands can be added via `vtthought.customCommands` array
+  - Commands can be disabled via `vtthought.disabledCommands` array
+  - Detection mode configurable (trailing/anywhere) via `vtthought.commandDetection`
+  - Feedback notifications via `vtthought.showCommandFeedback`
+- Created voice command test utilities (`extension/src/voiceCommands.test.ts`):
+  - `runCommandParserTests()` - Run full test suite with 20+ test cases
+  - `formatTestResults()` - Format results for display
+  - `createCommandTester()` - Interactive testing and analysis
+  - `testHomophoneNormalization()` - Test homophone corrections
+- Added new extension commands:
+  - `vtthought.listCommands` - Show all available voice commands grouped by category
+  - `vtthought.testCommands` - Run automated test suite and show results
+  - `vtthought.analyzeCommand` - Interactive analysis of any text for commands
+- Updated backend `app/services/commands.py` with matching command set (38 total commands)
+- Updated extension package.json with new configuration properties and commands
 - All code compiles successfully (Python and TypeScript)
 
 ---

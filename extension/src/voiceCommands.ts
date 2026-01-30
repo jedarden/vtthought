@@ -75,6 +75,50 @@ const VOICE_COMMANDS: VoiceCommand[] = [
         action: 'type',
         params: () => ({ text: '\t' })
     },
+    {
+        trigger: ['redo'],
+        action: 'redo'
+    },
+    {
+        trigger: ['copy', 'copy that'],
+        action: 'editor.action.clipboardCopyAction'
+    },
+    {
+        trigger: ['cut', 'cut that'],
+        action: 'editor.action.clipboardCutAction'
+    },
+    {
+        trigger: ['paste'],
+        action: 'editor.action.clipboardPasteAction'
+    },
+    {
+        trigger: ['select word'],
+        action: 'editor.action.wordSelect.drag'
+    },
+    {
+        trigger: ['select line'],
+        action: 'editor.action.selectLines'
+    },
+    {
+        trigger: ['duplicate line'],
+        action: 'editor.action.duplicateSelection'
+    },
+    {
+        trigger: ['move line up', 'move up'],
+        action: 'editor.action.moveLinesUpAction'
+    },
+    {
+        trigger: ['move line down', 'move down'],
+        action: 'editor.action.moveLinesDownAction'
+    },
+    {
+        trigger: ['indent', 'indent line'],
+        action: 'editor.action.indentLines'
+    },
+    {
+        trigger: ['outdent', 'unindent'],
+        action: 'editor.action.outdentLines'
+    },
 
     // Navigation Commands
     {
@@ -85,6 +129,34 @@ const VOICE_COMMANDS: VoiceCommand[] = [
             return num ? { lineNumber: parseInt(num) } : null;
         }
     },
+    {
+        trigger: ['scroll up'],
+        action: 'editorScroll',
+        params: () => ({ to: 'up', by: 'line' })
+    },
+    {
+        trigger: ['scroll down'],
+        action: 'editorScroll',
+        params: () => ({ to: 'down', by: 'line' })
+    },
+    {
+        trigger: ['scroll to top'],
+        action: 'editorScroll',
+        params: () => ({ to: 'top' })
+    },
+    {
+        trigger: ['scroll to bottom'],
+        action: 'editorScroll',
+        params: () => ({ to: 'bottom' })
+    },
+    {
+        trigger: ['go to start', 'go to beginning'],
+        action: 'cursorHome'
+    },
+    {
+        trigger: ['go to end'],
+        action: 'cursorEnd'
+    },
 
     // VS Code Commands
     {
@@ -92,22 +164,54 @@ const VOICE_COMMANDS: VoiceCommand[] = [
         action: 'workbench.action.files.save'
     },
     {
+        trigger: ['save all'],
+        action: 'workbench.action.files.saveAll'
+    },
+    {
         trigger: ['close file', 'close tab'],
         action: 'workbench.action.closeActiveEditor'
+    },
+    {
+        trigger: ['close all'],
+        action: 'workbench.action.closeAllEditors'
     },
     {
         trigger: ['open terminal', 'show terminal'],
         action: 'workbench.action.terminal.toggleTerminal'
     },
     {
+        trigger: ['new terminal'],
+        action: 'workbench.action.terminal.new'
+    },
+    {
         trigger: ['command palette'],
         action: 'workbench.action.showCommands'
+    },
+    {
+        trigger: ['file explorer', 'show sidebar'],
+        action: 'workbench.view.explorer'
+    },
+    {
+        trigger: ['search', 'find in files'],
+        action: 'workbench.view.search'
+    },
+    {
+        trigger: ['toggle sidebar', 'hide sidebar'],
+        action: 'workbench.action.toggleSidebarVisibility'
+    },
+    {
+        trigger: ['format document', 'format code'],
+        action: 'editor.action.formatDocument'
+    },
+    {
+        trigger: ['toggle word wrap'],
+        action: 'editor.action.toggleWordWrap'
     },
 
     // Dictation Control
     {
         trigger: ['stop listening', 'pause'],
-        action: 'voicecode.stopListening'
+        action: 'vtthought.toggleRecording'
     }
 ];
 
@@ -117,26 +221,70 @@ const VOICE_COMMANDS: VoiceCommand[] = [
  */
 export class CommandParser {
     private commands: VoiceCommand[];
+    private detectionMode: 'trailing' | 'anywhere';
 
-    constructor(commands: VoiceCommand[] = VOICE_COMMANDS) {
-        this.commands = commands;
+    constructor(commands?: VoiceCommand[], detectionMode: 'trailing' | 'anywhere' = 'trailing') {
+        this.commands = commands ?? VOICE_COMMANDS;
+        this.detectionMode = detectionMode;
+    }
+
+    /**
+     * Create a parser with custom commands from VS Code settings
+     */
+    static withSettings(): CommandParser {
+        const config = vscode.workspace.getConfiguration('vtthought');
+
+        // Get disabled commands
+        const disabledActions = new Set(
+            config.get<string[]>('disabledCommands', [])
+        );
+
+        // Start with built-in commands
+        let commands = VOICE_COMMANDS.filter(cmd => !disabledActions.has(cmd.action));
+
+        // Add custom commands from settings
+        const customCommands = config.get<any[]>('customCommands', []);
+        for (const custom of customCommands) {
+            if (custom.trigger && custom.action) {
+                commands.push({
+                    trigger: custom.trigger,
+                    action: custom.action,
+                    params: custom.params ? () => custom.params : undefined,
+                    terminal: custom.terminal || false
+                });
+            }
+        }
+
+        const detectionMode = config.get<'trailing' | 'anywhere'>('commandDetection', 'trailing');
+
+        return new CommandParser(commands, detectionMode);
     }
 
     parse(transcription: string): ParsedTranscription {
         let text = transcription;
         const foundCommands: Command[] = [];
 
-        // Check for commands at the end of transcription
+        // Check for commands based on detection mode
         for (const cmd of this.commands) {
             for (const trigger of cmd.trigger) {
-                const regex = new RegExp(`\\s*${this.escapeRegex(trigger)}\\s*$`, 'i');
-                if (regex.test(text)) {
+                const regex = this.detectionMode === 'trailing'
+                    ? new RegExp(`\\s*${this.escapeRegex(trigger)}\\s*$`, 'i')
+                    : new RegExp(`\\b${this.escapeRegex(trigger)}\\b`, 'gi');
+
+                let match: RegExpExecArray | null;
+                while ((match = regex.exec(text)) !== null) {
+                    // Remove command from text
                     text = text.replace(regex, '').trim();
+
                     foundCommands.push({
                         action: cmd.action,
                         params: cmd.params?.(transcription) ?? undefined,
                         terminal: cmd.terminal
                     });
+
+                    if (this.detectionMode === 'trailing') {
+                        break; // Only check first match for trailing mode
+                    }
                 }
             }
         }
@@ -150,6 +298,13 @@ export class CommandParser {
 
     private escapeRegex(str: string): string {
         return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    }
+
+    /**
+     * Get all available commands for display
+     */
+    getCommandList(): VoiceCommand[] {
+        return this.commands;
     }
 }
 
@@ -199,7 +354,18 @@ const HOMOPHONES: Record<string, string[]> = {
     'enter': ['inter', 'inner'],
     'send': ['sent', 'scent'],
     'delete': ['the lead', 'dilute'],
-    'undo': ['un do', 'and do']
+    'undo': ['un do', 'and do'],
+    'redo': ['re do', 're-do'],
+    'copy': ['copy that', 'copi'],
+    'cut': ['cut that'],
+    'paste': ['pace'],
+    'select': ['salect', 'select the'],
+    'save': ['saev'],
+    'close': ['clothes', 'close the'],
+    'scroll': ['skroll'],
+    'format': ['form at'],
+    'indent': ['in dent'],
+    'tab': ['tabb']
 };
 
 /**

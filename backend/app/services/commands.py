@@ -83,6 +83,50 @@ VOICE_COMMANDS: list[VoiceCommandDef] = [
         action="type",
         params='{"text": "\\t"}',
     ),
+    VoiceCommandDef(
+        triggers=["redo"],
+        action="redo",
+    ),
+    VoiceCommandDef(
+        triggers=["copy", "copy that"],
+        action="editor.action.clipboardCopyAction",
+    ),
+    VoiceCommandDef(
+        triggers=["cut", "cut that"],
+        action="editor.action.clipboardCutAction",
+    ),
+    VoiceCommandDef(
+        triggers=["paste"],
+        action="editor.action.clipboardPasteAction",
+    ),
+    VoiceCommandDef(
+        triggers=["select word"],
+        action="editor.action.wordSelect.drag",
+    ),
+    VoiceCommandDef(
+        triggers=["select line"],
+        action="editor.action.selectLines",
+    ),
+    VoiceCommandDef(
+        triggers=["duplicate line"],
+        action="editor.action.duplicateSelection",
+    ),
+    VoiceCommandDef(
+        triggers=["move line up", "move up"],
+        action="editor.action.moveLinesUpAction",
+    ),
+    VoiceCommandDef(
+        triggers=["move line down", "move down"],
+        action="editor.action.moveLinesDownAction",
+    ),
+    VoiceCommandDef(
+        triggers=["indent", "indent line"],
+        action="editor.action.indentLines",
+    ),
+    VoiceCommandDef(
+        triggers=["outdent", "unindent"],
+        action="editor.action.outdentLines",
+    ),
     # Navigation Commands
     VoiceCommandDef(
         triggers=["go to line"],
@@ -90,27 +134,87 @@ VOICE_COMMANDS: list[VoiceCommandDef] = [
         extract_params=True,
         param_pattern=r"go to line (\d+)",
     ),
+    VoiceCommandDef(
+        triggers=["scroll up"],
+        action="editorScroll",
+        params='{"to": "up", "by": "line"}',
+    ),
+    VoiceCommandDef(
+        triggers=["scroll down"],
+        action="editorScroll",
+        params='{"to": "down", "by": "line"}',
+    ),
+    VoiceCommandDef(
+        triggers=["scroll to top"],
+        action="editorScroll",
+        params='{"to": "top"}',
+    ),
+    VoiceCommandDef(
+        triggers=["scroll to bottom"],
+        action="editorScroll",
+        params='{"to": "bottom"}',
+    ),
+    VoiceCommandDef(
+        triggers=["go to start", "go to beginning"],
+        action="cursorHome",
+    ),
+    VoiceCommandDef(
+        triggers=["go to end"],
+        action="cursorEnd",
+    ),
     # VS Code Commands
     VoiceCommandDef(
         triggers=["save file", "save"],
         action="workbench.action.files.save",
     ),
     VoiceCommandDef(
+        triggers=["save all"],
+        action="workbench.action.files.saveAll",
+    ),
+    VoiceCommandDef(
         triggers=["close file", "close tab"],
         action="workbench.action.closeActiveEditor",
+    ),
+    VoiceCommandDef(
+        triggers=["close all"],
+        action="workbench.action.closeAllEditors",
     ),
     VoiceCommandDef(
         triggers=["open terminal", "show terminal"],
         action="workbench.action.terminal.toggleTerminal",
     ),
     VoiceCommandDef(
+        triggers=["new terminal"],
+        action="workbench.action.terminal.new",
+    ),
+    VoiceCommandDef(
         triggers=["command palette"],
         action="workbench.action.showCommands",
+    ),
+    VoiceCommandDef(
+        triggers=["file explorer", "show sidebar"],
+        action="workbench.view.explorer",
+    ),
+    VoiceCommandDef(
+        triggers=["search", "find in files"],
+        action="workbench.view.search",
+    ),
+    VoiceCommandDef(
+        triggers=["toggle sidebar", "hide sidebar"],
+        action="workbench.action.toggleSidebarVisibility",
+    ),
+    VoiceCommandDef(
+        triggers=["format document", "format code"],
+        action="editor.action.formatDocument",
+    ),
+    VoiceCommandDef(
+        triggers=["toggle word wrap"],
+        action="editor.action.toggleWordWrap",
     ),
     # Dictation Control
     VoiceCommandDef(
         triggers=["stop listening", "pause"],
-        action="voicecode.stopListening",
+        action="vtthought.toggleRecording",
     ),
 ]
 
@@ -121,6 +225,17 @@ HOMOPHONES: dict[str, list[str]] = {
     "send": ["sent", "scent"],
     "delete": ["the lead", "dilute"],
     "undo": ["un do", "and do"],
+    "redo": ["re do", "re-do"],
+    "copy": ["copy that", "copi"],
+    "cut": ["cut that"],
+    "paste": ["pace"],
+    "select": ["salect", "select the"],
+    "save": ["saev"],
+    "close": ["clothes", "close the"],
+    "scroll": ["skroll"],
+    "format": ["form at"],
+    "indent": ["in dent"],
+    "tab": ["tabb"],
 }
 
 

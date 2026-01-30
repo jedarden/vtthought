@@ -51,6 +51,18 @@
       {
         "command": "vtthought.resetSetup",
         "title": "VTThought: Reset Setup"
+      },
+      {
+        "command": "vtthought.listCommands",
+        "title": "VTThought: List Voice Commands"
+      },
+      {
+        "command": "vtthought.testCommands",
+        "title": "VTThought: Test Voice Commands"
+      },
+      {
+        "command": "vtthought.analyzeCommand",
+        "title": "VTThought: Analyze Voice Command"
       }
     ],
     "keybindings": [
@@ -102,6 +114,56 @@
           "type": "boolean",
           "default": true,
           "description": "Automatically connect to backend on activation"
+        },
+        "vtthought.customCommands": {
+          "type": "array",
+          "default": [],
+          "description": "Custom voice commands to add to the built-in command list",
+          "items": {
+            "type": "object",
+            "properties": {
+              "trigger": {
+                "type": "array",
+                "description": "Phrases that trigger this command",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "action": {
+                "type": "string",
+                "description": "VS Code command to execute"
+              },
+              "params": {
+                "type": "object",
+                "description": "Optional parameters for the command"
+              },
+              "terminal": {
+                "type": "boolean",
+                "description": "Is this a terminal command?",
+                "default": false
+              }
+            },
+            "required": ["trigger", "action"]
+          }
+        },
+        "vtthought.disabledCommands": {
+          "type": "array",
+          "default": [],
+                   "description": "Voice command actions to disable (e.g., 'workbench.action.files.save' to disable 'save file' command)",
+          "items": {
+            "type": "string"
+          }
+        },
+        "vtthought.commandDetection": {
+          "type": "string",
+          "default": "trailing",
+          "enum": ["trailing", "anywhere"],
+          "description": "How voice commands are detected - 'trailing' only at end of text, 'anywhere' in the text"
+        },
+        "vtthought.showCommandFeedback": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show notifications when voice commands are executed"
         }
       }
     }

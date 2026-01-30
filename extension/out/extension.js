@@ -42,6 +42,8 @@ const audioStreamer_1 = require("./audioStreamer");
 const textInsertion_1 = require("./textInsertion");
 const tokenManager_1 = require("./tokenManager");
 const setupFlow_1 = require("./setupFlow");
+const voiceCommands_1 = require("./voiceCommands");
+const voiceCommands_test_1 = require("./voiceCommands.test");
 /**
  * VTThought Extension Main Class
  */
@@ -178,8 +180,114 @@ class VTThoughtExtension {
             await this.runSetup();
         }), vscode.commands.registerCommand('vtthought.resetSetup', async () => {
             await this.resetSetup();
+        }), 
+        // Voice command utilities
+        vscode.commands.registerCommand('vtthought.listCommands', async () => {
+            await this.listVoiceCommands();
+        }), vscode.commands.registerCommand('vtthought.testCommands', async () => {
+            await this.testVoiceCommands();
+        }), vscode.commands.registerCommand('vtthought.analyzeCommand', async () => {
+            await this.analyzeVoiceCommand();
         }));
         this.log('Commands registered');
+    }
+    /**
+     * Test voice command parser
+     */
+    async testVoiceCommands() {
+        const parser = voiceCommands_1.CommandParser.withSettings();
+        const results = (0, voiceCommands_test_1.runCommandParserTests)(parser);
+        const output = (0, voiceCommands_test_1.formatTestResults)(results);
+        this.outputChannel.clear();
+        this.outputChannel.append(output);
+        this.outputChannel.show();
+        const passed = results.filter(r => r.passed).length;
+        const total = results.length;
+        vscode.window.showInformationMessage(`Voice command tests: ${passed}/${total} passed`, 'View Results').then(action => {
+            if (action === 'View Results') {
+                this.outputChannel.show();
+            }
+        });
+    }
+    /**
+     * Analyze a transcription for voice commands
+     */
+    async analyzeVoiceCommand() {
+        const input = await vscode.window.showInputBox({
+            prompt: 'Enter text to analyze for voice commands',
+            placeHolder: 'create a function called hello enter'
+        });
+        if (!input) {
+            return;
+        }
+        const parser = voiceCommands_1.CommandParser.withSettings();
+        const tester = (0, voiceCommands_test_1.createCommandTester)(parser);
+        const analysis = tester.analyze(input);
+        // First apply homophone normalization
+        const normalized = (0, voiceCommands_1.normalizeCommand)(input);
+        let output = `Voice Command Analysis\n\n`;
+        output += `Original: "${input}"\n`;
+        output += `Normalized: "${normalized}"\n`;
+        output += `Cleaned text: "${analysis.cleaned}"\n`;
+        output += `Commands found: ${analysis.commandsFound}\n`;
+        if (analysis.commands.length > 0) {
+            output += '\nCommands:\n';
+            for (const cmd of analysis.commands) {
+                output += `  • ${cmd.action}`;
+                if (cmd.isTerminal)
+                    output += ' (terminal)';
+                if (cmd.params)
+                    output += ` ${JSON.stringify(cmd.params)}`;
+                output += '\n';
+            }
+        }
+        this.outputChannel.clear();
+        this.outputChannel.append(output);
+        this.outputChannel.show();
+    }
+    /**
+     * List all available voice commands (ADR-008)
+     */
+    async listVoiceCommands() {
+        const parser = voiceCommands_1.CommandParser.withSettings();
+        const commands = parser.getCommandList();
+        // Group commands by category
+        const categories = new Map();
+        for (const cmd of commands) {
+            const category = this.categorizeCommand(cmd.action);
+            if (!categories.has(category)) {
+                categories.set(category, []);
+            }
+            categories.get(category).push(cmd);
+        }
+        // Build formatted message
+        let message = 'VTThought Voice Commands\n\n';
+        for (const [category, cmds] of categories.entries()) {
+            message += `## ${category}\n`;
+            for (const cmd of cmds) {
+                const triggers = cmd.trigger.join(', ');
+                message += `  • "${triggers}" → ${cmd.action}\n`;
+            }
+            message += '\n';
+        }
+        // Show in output channel
+        this.outputChannel.clear();
+        this.outputChannel.append(message);
+        this.outputChannel.show();
+        vscode.window.showInformationMessage('Voice commands listed in VTThought output channel');
+    }
+    categorizeCommand(action) {
+        if (action.startsWith('terminal.'))
+            return 'Execution Commands';
+        if (action.startsWith('editor.action') || action === 'undo' || action === 'redo' || action === 'type')
+            return 'Editing Commands';
+        if (action === 'workbench.action.gotoLine' || action === 'editorScroll' || action === 'cursorHome' || action === 'cursorEnd')
+            return 'Navigation Commands';
+        if (action.startsWith('workbench.action') || action.startsWith('workbench.view'))
+            return 'VS Code Commands';
+        if (action === 'vtthought.toggleRecording')
+            return 'Dictation Control';
+        return 'Other';
     }
     /**
      * Toggle recording state
