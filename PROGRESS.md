@@ -87,9 +87,9 @@ Voice-to-code VS Code extension with Docker backend for speech-to-text transcrip
 ### Next Up - ADR-011 Remaining UI Tasks
 
 1. **User Preferences Editor** (Priority: HIGH)
-   - [ ] Add UI to edit user preferences (language, cleanup_level, hotkey_mode)
-   - [ ] Backend API exists (`/api/user/preferences` PUT)
-   - [ ] Extension can view but not edit
+   - [x] Add UI to edit user preferences (language, cleanup_level, hotkey_mode)
+   - [x] Backend API exists (`/api/user/preferences` PUT)
+   - [x] Extension can view and edit preferences
 
 2. **Custom Voice Commands UI** (Priority: MEDIUM)
    - [ ] Add UI to create/manage custom voice commands
@@ -122,7 +122,7 @@ Voice-to-code VS Code extension with Docker backend for speech-to-text transcrip
 | 1-15 | Earlier | Core architecture implementation | Complete |
 | 16 | Jan 30 | Extension UI for vocabulary/style management | Complete |
 | 17 | Jan 30 | Performance tuning - streaming pipeline optimization | Complete |
-| 18 | Jan 30 | Current session | Starting |
+| 18 | Jan 30 | User preferences editor UI | Complete |
 
 ## Statistics
 
