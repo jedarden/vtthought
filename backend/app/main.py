@@ -65,6 +65,8 @@ async def root() -> dict[str, str]:
         "name": settings.app_name,
         "version": settings.app_version,
         "status": "running",
+        "health_url": "/api/health",
+        "websocket_url": "/api/ws/audio"
     }
 
 

@@ -41,12 +41,31 @@
         "when": "editorTextFocus"
       }
     ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "vtthought-sidebar",
+          "title": "VTThought",
+          "icon": "$(mic)"
+        }
+      ]
+    },
+    "views": {
+      "vtthought-sidebar": [
+        {
+          "type": "webview",
+          "id": "vtthought.voiceInputView",
+          "name": "Voice Input",
+          "contextualTitle": "VTThought Voice Input"
+        }
+      ]
+    },
     "configuration": {
       "title": "VTThought",
       "properties": {
         "vtthought.backendUrl": {
           "type": "string",
-          "default": "ws://localhost:8000/ws/audio",
+          "default": "ws://localhost:8000/api/ws/audio",
           "description": "WebSocket URL for the backend transcription service"
         },
         "vtthought.apiUrl": {

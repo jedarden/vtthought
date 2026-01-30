@@ -37,13 +37,15 @@ exports.VTThoughtExtension = void 0;
 exports.activate = activate;
 exports.deactivate = deactivate;
 const vscode = __importStar(require("vscode"));
+const voiceInputViewProvider_1 = require("./voiceInputViewProvider");
+const audioStreamer_1 = require("./audioStreamer");
 /**
  * VTThought Extension Main Class
  */
 class VTThoughtExtension {
     constructor(context) {
-        // WebSocket (stub for now - will be implemented in later phase)
-        this.ws = null;
+        // Audio Streamer for WebSocket communication
+        this.audioStreamer = null;
         this.context = context;
         this.outputChannel = vscode.window.createOutputChannel('VTThought');
         // Initialize state from configuration
@@ -60,6 +62,19 @@ class VTThoughtExtension {
         this.connectionStatusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 99);
         this.connectionStatusBarItem.name = 'VTThought Connection Status';
         this.connectionStatusBarItem.command = 'vtthought.connectBackend';
+        // Create WebView provider for audio capture
+        this.voiceInputViewProvider = new voiceInputViewProvider_1.VoiceInputViewProvider(context.extensionUri);
+        // Register audio data callback
+        this.voiceInputViewProvider.onAudioData((data, sampleRate) => {
+            this.handleAudioData(data, sampleRate);
+        });
+        // Register error callback
+        this.voiceInputViewProvider.onError((error) => {
+            this.log(`Audio capture error: ${error}`);
+            vscode.window.showErrorMessage(`VTThought: ${error}`);
+            this.state.isRecording = false;
+            this.updateStatusDisplay();
+        });
         this.updateStatusDisplay();
     }
     /**
@@ -67,6 +82,8 @@ class VTThoughtExtension {
      */
     activate() {
         this.log('VTThought Extension Activated');
+        // Register WebView provider
+        this.context.subscriptions.push(vscode.window.registerWebviewViewProvider(voiceInputViewProvider_1.VoiceInputViewProvider.viewType, this.voiceInputViewProvider));
         // Register commands
         this.registerCommands();
         // Show status bar items
@@ -90,7 +107,13 @@ class VTThoughtExtension {
      * Deactivate the extension
      */
     deactivate() {
+        // Stop recording if active
+        if (this.state.isRecording) {
+            this.stopRecording();
+        }
+        // Disconnect WebSocket
         this.disconnect();
+        // Dispose resources
         this.statusBarItem.dispose();
         this.connectionStatusBarItem.dispose();
         this.outputChannel.dispose();
@@ -128,22 +151,40 @@ class VTThoughtExtension {
         }
     }
     /**
-     * Start recording (stub - WebView audio capture will be implemented later)
+     * Start recording
      */
     startRecording() {
         this.log('Starting recording...');
+        // Start audio capture in WebView
+        this.voiceInputViewProvider.startRecording();
         vscode.window.showInformationMessage('VTThought: Recording started');
-        // TODO: Implement WebView audio capture (ADR-003)
-        // TODO: Implement WebSocket streaming (ADR-004)
     }
     /**
      * Stop recording
      */
     stopRecording() {
         this.log('Stopping recording...');
+        // Stop audio capture in WebView
+        this.voiceInputViewProvider.stopRecording();
+        // Send end-of-stream signal to backend
+        if (this.audioStreamer?.isConnected) {
+            this.audioStreamer.sendEndOfStream();
+        }
         vscode.window.showInformationMessage('VTThought: Recording stopped');
-        // TODO: Close audio streams
-        // TODO: Send transcription complete signal
+    }
+    /**
+     * Handle audio data from WebView
+     */
+    handleAudioData(data, sampleRate) {
+        // Stream audio to backend via WebSocket
+        if (this.audioStreamer?.isConnected) {
+            try {
+                this.audioStreamer.sendAudio(data);
+            }
+            catch (error) {
+                this.log(`Failed to send audio data: ${error}`);
+            }
+        }
     }
     /**
      * Connect to backend WebSocket
@@ -151,22 +192,35 @@ class VTThoughtExtension {
     async connectBackend() {
         const config = vscode.workspace.getConfiguration('vtthought');
         const apiUrl = config.get('apiUrl', 'http://localhost:8000');
+        const wsUrl = config.get('backendUrl', 'ws://localhost:8000/ws/audio');
         this.log(`Connecting to backend: ${apiUrl}`);
         try {
             // First, verify backend is reachable via health check
-            const response = await fetch(`${apiUrl}/health`);
-            if (response.ok) {
-                this.state.isConnected = true;
-                this.updateStatusDisplay();
-                this.log('Connected to backend successfully');
-                vscode.window.showInformationMessage('VTThought: Connected to backend');
-                // TODO: Establish WebSocket connection
-                // const wsUrl = config.get('backendUrl', 'ws://localhost:8000/ws/audio');
-                // this.ws = new WebSocket(wsUrl);
-            }
-            else {
+            const response = await fetch(`${apiUrl}/api/health`);
+            if (!response.ok) {
                 throw new Error(`Health check failed: ${response.status}`);
             }
+            // Establish WebSocket connection
+            this.audioStreamer = new audioStreamer_1.AudioStreamer(wsUrl, { sampleRate: 16000, channels: 1 }, {
+                onConnected: () => {
+                    this.state.isConnected = true;
+                    this.updateStatusDisplay();
+                    this.log('WebSocket connected successfully');
+                },
+                onDisconnected: () => {
+                    this.state.isConnected = false;
+                    this.state.isRecording = false;
+                    this.updateStatusDisplay();
+                    this.log('WebSocket disconnected');
+                },
+                onError: (error) => {
+                    this.log(`WebSocket error: ${error.message}`);
+                    vscode.window.showErrorMessage(`VTThought: WebSocket error - ${error.message}`);
+                }
+            });
+            await this.audioStreamer.connect();
+            this.log('Connected to backend successfully');
+            vscode.window.showInformationMessage('VTThought: Connected to backend');
         }
         catch (error) {
             this.log(`Connection failed: ${error}`);
@@ -179,9 +233,14 @@ class VTThoughtExtension {
      * Disconnect from backend
      */
     disconnect() {
-        if (this.ws) {
-            this.ws.close();
-            this.ws = null;
+        // Stop recording if active
+        if (this.state.isRecording) {
+            this.stopRecording();
+        }
+        // Close WebSocket connection
+        if (this.audioStreamer) {
+            this.audioStreamer.close();
+            this.audioStreamer = null;
         }
         this.state.isConnected = false;
         this.state.isRecording = false;
