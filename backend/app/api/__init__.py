@@ -4,6 +4,7 @@ VTThought API Routes
 WebSocket and HTTP endpoints for the VTThought backend.
 Implements the full streaming pipeline (ADR-005, ADR-006, ADR-007, ADR-008).
 Includes authentication endpoints (ADR-002).
+Includes user personalization endpoints (ADR-011).
 """
 import json
 import logging
@@ -14,6 +15,7 @@ from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Query
 from fastapi.responses import JSONResponse
 
 from app.api import auth as auth_api
+from app.api import user as user_api
 from app.auth import validate_extension_token, get_default_user
 from app.config import get_settings
 from app.models import HealthResponse
@@ -34,6 +36,9 @@ router = APIRouter()
 
 # Include auth routes
 router.include_router(auth_api.auth_router, tags=["authentication"])
+
+# Include user personalization routes (ADR-011)
+router.include_router(user_api.router, tags=["user"])
 
 # Store active WebSocket connections
 active_connections: list[WebSocket] = []
@@ -229,12 +234,38 @@ async def handle_text_message(
                     ).model_dump()
                 )
 
-                # Stream LLM cleanup
-                ctx = CleanupContext(raw_transcription=final_result.text)
+                # Build cleanup context with user personalization (ADR-011)
+                from app.services.vocabulary import get_user_vocabulary
+                from app.services.style import get_style_learner
+
+                # Get user's vocabulary for LLM context
+                user_vocab = await get_user_vocabulary(user.id if user else "default")
+                vocab_list = [v["word"] for v in await user_vocab.get_all_words()]
+
+                # Get user's corrections
+                corrections_list = await user_vocab.get_all_corrections()
+                corrections_dict = {c["spoken"]: c["corrected"] for c in corrections_list}
+
+                # Get user's style preferences
+                style_learner = await get_style_learner(user.id if user else "default")
+                style_prompt = await style_learner.get_style_prompt()
+
+                # Build cleanup context
+                ctx = CleanupContext(
+                    raw_transcription=final_result.text,
+                    user_vocabulary=vocab_list,
+                    learned_corrections=corrections_dict,
+                    cleanup_level="moderate",
+                )
+
                 position = 0
                 cleaned_tokens = []
 
-                async for token in cleaner.cleanup_stream(ctx):
+                # Use style-aware cleanup
+                from app.services.llm import build_cleanup_prompt
+                prompt = build_cleanup_prompt(ctx, style_prompt)
+
+                async for token in cleaner.llm.stream(prompt):
                     cleaned_tokens.append(token)
                     await websocket.send_json(
                         create_streaming_message(token, position).model_dump()

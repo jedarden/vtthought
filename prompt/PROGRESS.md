@@ -113,6 +113,18 @@
     - vtthought.clearAuthentication - Clear stored credentials
     - vtthought.showAuthenticationStatus - Show auth status
   - [x] Extension package.json updated with new commands
+- [x] User Personalization (ADR-011) - Session 10
+  - [x] SQLite database infrastructure (aiosqlite)
+  - [x] Database schema (users, preferences, vocabulary, corrections, style_preferences, voice_commands)
+  - [x] UserPreferences data model with cleanup levels and hotkey modes
+  - [x] UserVocabulary service with custom words and learned corrections
+  - [x] Style learning engine for punctuation/formatting preferences
+  - [x] Integration with STT service (Whisper initial prompt)
+  - [x] Integration with LLM cleanup (style-aware prompts)
+  - [x] User API endpoints (/preferences, /vocabulary, /corrections, /style)
+  - [x] Data export and deletion endpoints (GDPR compliance)
+  - [x] WebSocket integration with user-specific vocabulary
+  - [x] In-memory vocabulary caching with TTL
 
 ### In Progress
 - [ ] Testing with real audio input (requires Whisper model download ~150MB)
@@ -120,10 +132,10 @@
 - [ ] Docker build verification (requires Docker daemon)
 
 ### Next Up
-- [ ] User personalization (ADR-011)
 - [ ] First-run setup (ADR-017)
 - [ ] Voice command refinement and testing
 - [ ] OAuth integration (GitHub)
+- [ ] Extension UI for vocabulary/style management
 
 ---
 
@@ -236,6 +248,38 @@
 - Authentication setup wizard and commands
 - All code compiles successfully (Python and TypeScript)
 - Ready for testing with backend running
+
+### Session 10 - User Personalization (ADR-011)
+- Implemented SQLite database with aiosqlite
+- Created database schema with 6 tables (users, preferences, vocabulary, corrections, style_preferences, voice_commands)
+- Implemented UserRepository with enforced user isolation
+- Created UserPreferences data model (cleanup levels, hotkey modes, etc.)
+- Implemented UserVocabulary service:
+  - Custom vocabulary words with categories (technical, project, names, acronyms)
+  - Learned corrections from user edits
+  - Whisper initial prompt generation
+  - In-memory caching with TTL
+- Implemented StyleLearner service:
+  - Punctuation preference detection (oxford comma, em dash)
+  - Capitalization preference tracking
+  - Number format learning (5 vs five)
+  - Abbreviation style learning (don't vs do not)
+  - Minimum occurrence threshold for confident preferences
+- Integrated vocabulary with STT service (Whisper initial prompt biasing)
+- Integrated style preferences with LLM cleanup prompts
+- Created user API endpoints:
+  - GET/PUT /api/user/preferences
+  - GET/POST/DELETE /api/user/vocabulary
+  - GET/POST /api/user/corrections
+  - POST /api/user/style/learn
+  - GET /api/user/style/prompt
+  - GET /api/user/export (GDPR data export)
+  - DELETE /api/user/data (right to be forgotten)
+  - Batch operations for vocabulary and corrections
+- Updated WebSocket to use user-specific vocabulary and style preferences
+- Database initialization on application startup with default user
+- Added aiosqlite and cachetools dependencies
+- All code compiles successfully (Python and TypeScript)
 
 ---
 

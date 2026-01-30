@@ -353,11 +353,19 @@ class AnthropicProvider(BaseLLMProvider):
                         continue
 
 
-def build_cleanup_prompt(ctx: CleanupContext) -> str:
+def build_cleanup_prompt(ctx: CleanupContext, style_prompt: str = "") -> str:
     """
     Build a prompt that works with any LLM.
 
     Implements the prompt from ADR-006 for cross-provider compatibility.
+    Integrated with user style preferences (ADR-011).
+
+    Args:
+        ctx: Cleanup context with transcription and metadata
+        style_prompt: Optional user style preferences prompt
+
+    Returns:
+        Formatted prompt for LLM
     """
     # Build vocabulary hint section
     vocab_section = ""
@@ -398,6 +406,9 @@ Apply these learned corrections:
         "aggressive": "Rewrite for clarity while preserving exact intent. Make it concise and professional.",
     }
 
+    # Build style section if provided
+    style_section = f"\n{style_prompt}" if style_prompt else ""
+
     return f"""You are a speech-to-text cleanup assistant for a developer tool. Transform the spoken transcription into clear, actionable text.
 
 ## Rules
@@ -408,7 +419,7 @@ Apply these learned corrections:
 3. FIX grammar and add punctuation
 4. PRESERVE technical terms, function names, file paths, and code exactly
 5. OUTPUT only the cleaned text - no explanations, no quotes, no prefixes
-{vocab_section}{corrections_section}{context_section}
+{vocab_section}{corrections_section}{context_section}{style_section}
 ## Cleanup Level: {ctx.cleanup_level}
 {level_instructions.get(ctx.cleanup_level, level_instructions["moderate"])}
 
@@ -433,6 +444,52 @@ Output: Commit the changes, then run the tests
 {ctx.raw_transcription}
 
 ## Cleaned Output"""
+
+
+async def cleanup_with_style(
+    raw_text: str,
+    user_id: str,
+    llm: BaseLLMProvider,
+    vocabulary: list[str] | None = None,
+    corrections: dict[str, str] | None = None,
+    session_context: dict | None = None,
+) -> str:
+    """
+    Apply LLM cleanup with user's learned style preferences (ADR-011).
+
+    Args:
+        raw_text: Raw transcription to clean
+        user_id: User ID for personalization
+        llm: LLM provider instance
+        vocabulary: Optional user vocabulary list
+        corrections: Optional learned corrections dict
+        session_context: Optional session context (file, branch, etc.)
+
+    Returns:
+        Cleaned transcription with user style applied
+    """
+    from app.services.style import StyleLearner
+
+    # Get user's style preferences
+    style_learner = StyleLearner(user_id)
+    style_prompt = await style_learner.get_style_prompt()
+
+    # Build cleanup context
+    ctx = CleanupContext(
+        raw_transcription=raw_text,
+        user_vocabulary=vocabulary or [],
+        learned_corrections=corrections or {},
+        current_file=session_context.get("current_file") if session_context else None,
+        git_branch=session_context.get("git_branch") if session_context else None,
+        recent_actions=session_context.get("recent_actions", []) if session_context else [],
+        open_files=session_context.get("open_files", []) if session_context else [],
+        cleanup_level="moderate",
+    )
+
+    # Build prompt with style preferences
+    prompt = build_cleanup_prompt(ctx, style_prompt)
+
+    return await llm.complete(prompt)
 
 
 class TranscriptionCleaner:

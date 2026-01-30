@@ -22,12 +22,23 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     Application lifespan manager.
 
     Handles startup and shutdown events.
+    Initializes database for user personalization (ADR-011).
     """
     # Startup
     print(f"Starting {settings.app_name} v{settings.app_version}")
     print(f"Environment: {settings.environment}")
     print(f"STT Engine: {settings.stt_engine}")
     print(f"LLM Provider: {settings.llm_provider}")
+
+    # Initialize database and ensure default user (ADR-011)
+    from app.database import init_db, ensure_default_user
+    try:
+        await init_db()
+        await ensure_default_user()
+        print("Database initialized successfully")
+    except Exception as e:
+        print(f"Database initialization warning: {e}")
+        print("Continuing without database - personalization features unavailable")
 
     yield
 

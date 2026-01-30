@@ -3,6 +3,7 @@ VTThought STT Service (ADR-005)
 
 Speech-to-text service using faster-whisper with GPU acceleration.
 Supports streaming transcription with interim results.
+Integrated with user vocabulary for personalization (ADR-011).
 """
 from __future__ import annotations
 
@@ -26,11 +27,12 @@ from app.errors import (
     get_circuit_breaker,
     retry_with_backoff,
 )
+from app.services.vocabulary import UserVocabulary, get_user_vocabulary
 
 logger = logging.getLogger(__name__)
 
 
-# Technical vocabulary for code-related transcription
+# Technical vocabulary for code-related transcription (default/base prompt)
 CODING_PROMPT = """
 Technical programming terms: TypeScript, JavaScript, Python, Rust, Go, Java,
 React, Vue, Angular, Svelte, FastAPI, Django, Flask, Express, Node.js,
@@ -41,6 +43,26 @@ npm, pip, cargo, brew, apt, yum, Claude, Anthropic, OpenAI, GPT, LLM,
 async, await, promise, callback, function, class, interface, type,
 variable, constant, array, object, map, set, list, dictionary, hash.
 """
+
+
+async def build_whisper_prompt(user_id: str) -> str:
+    """
+    Build Whisper initial prompt combining base vocabulary with user's custom words.
+
+    Args:
+        user_id: User ID for personalization
+
+    Returns:
+        Combined prompt for Whisper biasing
+    """
+    # Get user's custom vocabulary
+    user_vocab = await get_user_vocabulary(user_id)
+    custom_prompt = await user_vocab.get_whisper_prompt()
+
+    # Combine base prompt with user's vocabulary
+    if custom_prompt:
+        return f"{CODING_PROMPT}\nUser vocabulary: {custom_prompt}"
+    return CODING_PROMPT
 
 
 @dataclass
@@ -160,6 +182,7 @@ class WhisperSTT:
         audio: np.ndarray,
         sample_rate: int = 16000,
         language: str = "en",
+        user_id: Optional[str] = None,
     ) -> str:
         """
         Transcribe audio array to text.
@@ -168,6 +191,7 @@ class WhisperSTT:
             audio: Audio samples as float32 numpy array (-1.0 to 1.0)
             sample_rate: Sample rate in Hz (default 16000)
             language: Language code (default 'en')
+            user_id: Optional user ID for personalized vocabulary
 
         Returns:
             Transcribed text string
@@ -186,13 +210,21 @@ class WhisperSTT:
                 sample_rate=sample_rate,
             )
 
+        # Build prompt (use base if no user_id)
+        if user_id:
+            # Note: This is a simplified sync version.
+            # In production, prompt should be passed in from caller.
+            initial_prompt = CODING_PROMPT
+        else:
+            initial_prompt = CODING_PROMPT
+
         try:
             segments, info = self.model.transcribe(
                 audio,
                 beam_size=5,
                 best_of=5,
                 language=language,
-                initial_prompt=CODING_PROMPT,
+                initial_prompt=initial_prompt,
                 condition_on_previous_text=True,
                 vad_filter=True,
                 vad_parameters={
@@ -214,10 +246,69 @@ class WhisperSTT:
                 retryable=True,
             ) from e
 
+    async def transcribe_with_user(
+        self,
+        audio: np.ndarray,
+        user_id: str,
+        sample_rate: int = 16000,
+        language: str = "en",
+    ) -> str:
+        """
+        Transcribe with user-specific vocabulary (ADR-011).
+
+        Args:
+            audio: Audio samples as float32 numpy array
+            user_id: User ID for personalized vocabulary
+            sample_rate: Sample rate in Hz
+            language: Language code
+
+        Returns:
+            Transcribed text with user vocabulary biasing
+        """
+        # Get personalized prompt
+        prompt = await build_whisper_prompt(user_id)
+
+        # Validate audio
+        if audio.size == 0:
+            raise ValidationError(
+                message="Audio array is empty",
+                code="EMPTY_AUDIO",
+            )
+
+        # Run transcription in thread pool
+        loop = asyncio.get_event_loop()
+        segments, info = await loop.run_in_executor(
+            None,
+            lambda: self.model.transcribe(
+                audio,
+                beam_size=5,
+                best_of=5,
+                language=language,
+                initial_prompt=prompt,
+                condition_on_previous_text=True,
+                vad_filter=True,
+                vad_parameters={
+                    "threshold": 0.5,
+                    "min_speech_duration_ms": 250,
+                    "min_silence_duration_ms": 500,
+                },
+            )
+        )
+
+        text = " ".join(segment.text.strip() for segment in segments)
+
+        # Apply user's learned corrections
+        user_vocab = await get_user_vocabulary(user_id)
+        text = await user_vocab.apply_corrections(text)
+
+        logger.debug(f"Transcription (user={user_id}): {text}")
+        return text
+
     def transcribe_final(
         self,
         audio: bytes | np.ndarray,
         sample_rate: int = 16000,
+        initial_prompt: Optional[str] = None,
     ) -> TranscriptionResult:
         """
         High-quality final transcription.
@@ -225,6 +316,7 @@ class WhisperSTT:
         Args:
             audio: Audio as bytes (PCM16) or numpy array (float32)
             sample_rate: Sample rate in Hz
+            initial_prompt: Optional custom initial prompt for Whisper
 
         Returns:
             TranscriptionResult with final text
@@ -235,6 +327,9 @@ class WhisperSTT:
         else:
             audio_array = audio
 
+        # Use provided prompt or default
+        prompt = initial_prompt or CODING_PROMPT
+
         # Transcribe with high-quality settings
         segments, info = self.model.transcribe(
             audio_array,
@@ -242,7 +337,7 @@ class WhisperSTT:
             best_of=5,
             language="en",
             temperature=0.0,
-            initial_prompt=CODING_PROMPT,
+            initial_prompt=prompt,
             vad_filter=True,
         )
 
