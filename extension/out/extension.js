@@ -45,6 +45,7 @@ const setupFlow_1 = require("./setupFlow");
 const voiceCommands_1 = require("./voiceCommands");
 const voiceCommands_test_1 = require("./voiceCommands.test");
 const userPreferences_1 = require("./userPreferences");
+const versionCheck_1 = require("./versionCheck");
 /**
  * VTThought Extension Main Class
  */
@@ -69,7 +70,8 @@ class VTThoughtExtension {
             isRecording: false,
             isConnected: false,
             backendUrl: config.get('backendUrl', 'http://localhost:8000'),
-            isAuthenticated: false
+            isAuthenticated: false,
+            backendFeatures: [] // Populated on successful connection (ADR-024)
         };
         // Create status bar items
         this.statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
@@ -529,12 +531,24 @@ Backend URL: ${authStatus.backendUrl}
         const wsUrl = await this.tokenManager.getWebSocketUrl();
         this.log(`Connecting to backend: ${apiUrl}`);
         try {
-            // First, verify backend is reachable via health check
             const authHeader = await this.tokenManager.getAuthHeader();
             const headers = {};
             if (authHeader) {
                 headers['Authorization'] = authHeader;
             }
+            // Step 1: Check compatibility via /api/version endpoint (ADR-024)
+            const checker = new versionCheck_1.VersionChecker();
+            const versionResult = await checker.checkCompatibility(apiUrl, authHeader);
+            (0, versionCheck_1.logCompatibilityResult)(versionResult, this.outputChannel);
+            if (!versionResult.compatible) {
+                await (0, versionCheck_1.handleCompatibilityError)(versionResult);
+                // If user chose to connect anyway, we continue
+                // If they cancelled, handleCompatibilityError throws
+            }
+            // Store available features for feature detection
+            this.state.backendFeatures = versionResult.features;
+            this.log(`Backend features: ${versionResult.features.join(', ')}`);
+            // Step 2: Verify backend health
             const response = await fetch(`${apiUrl}/api/health`, { headers });
             if (!response.ok) {
                 if (response.status === 401) {
@@ -550,7 +564,7 @@ Backend URL: ${authStatus.backendUrl}
                 }
                 throw new Error(`Health check failed: ${response.status}`);
             }
-            // Establish WebSocket connection
+            // Step 3: Establish WebSocket connection
             this.audioStreamer = new audioStreamer_1.AudioStreamer(wsUrl, { sampleRate: 16000, channels: 1 }, {
                 onConnected: () => {
                     this.state.isConnected = true;

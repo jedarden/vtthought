@@ -73,6 +73,8 @@ VTThought is a voice-driven development system that captures your spoken words a
 
 ## Quick Start
 
+**For detailed installation instructions, see [INSTALL.md](./docs/INSTALL.md).**
+
 ### Backend
 
 ```bash
@@ -95,6 +97,14 @@ npm run compile
 ```
 
 ## Documentation
+
+| Document | Description |
+|----------|-------------|
+| [INSTALL.md](./docs/INSTALL.md) | Installation guide for all platforms |
+| [USER_GUIDE.md](./docs/USER_GUIDE.md) | How to use VTThought effectively |
+| [TROUBLESHOOTING.md](./docs/TROUBLESHOOTING.md) | Common issues and solutions |
+| [BETA_TESTING.md](./docs/BETA_TESTING.md) | Beta testing program and feedback |
+| [ADRs](./ADRs/) | Architecture Decision Records |
 
 See the [ADRs](./ADRs/) directory for architectural decisions covering:
 
@@ -119,7 +129,7 @@ See the [ADRs](./ADRs/) directory for architectural decisions covering:
 
 ## Status
 
-**Early Development** - Architecture defined, implementation in progress.
+**Beta Testing** - Core features implemented, ready for user testing. See [BETA_TESTING.md](./docs/BETA_TESTING.md) to participate.
 
 ## License
 

@@ -268,6 +268,37 @@
 ### In Progress
 - [ ] User testing and feedback collection
 
+### Completed This Session (Session 20)
+- [x] Documentation for user testing phase
+  - Created comprehensive installation guide (docs/INSTALL.md)
+    - System requirements for GPU and CPU modes
+    - Quick start with Docker Desktop
+    - Manual installation instructions
+    - Platform-specific notes (Windows/macOS/Linux)
+    - Post-installation setup guide
+    - Troubleshooting for common installation issues
+  - Created user guide (docs/USER_GUIDE.md)
+    - Getting started instructions
+    - Basic usage (push-to-talk)
+    - Complete voice command reference (38 commands)
+    - Personalization features (vocabulary, style learning)
+    - Advanced configuration options
+    - Tips and best practices
+  - Created troubleshooting guide (docs/TROUBLESHOOTING.md)
+    - Backend issues (startup, connection, performance)
+    - Extension issues (connection, activation, commands)
+    - Audio/microphone issues (permissions, quality)
+    - Transcription accuracy tips
+    - Performance optimization
+    - Authentication and Docker issues
+  - Created beta testing guide (docs/BETA_TESTING.md)
+    - How to participate
+    - Testing scenarios and priorities
+    - Issue reporting templates
+    - Feature request process
+    - Known limitations
+  - Updated README.md with documentation links and beta status
+
 ### Next Up
 - [ ] User testing and feedback collection
 
@@ -640,6 +671,47 @@
   - Shows user dialog on incompatibility with options: Update Extension, Check Backend, Connect Anyway
   - Logs available features on successful connection for feature detection
 - All code compiles successfully (Python and TypeScript)
+
+### Session 20 - User Testing Documentation
+- Created comprehensive documentation for beta testing phase
+- Created docs/INSTALL.md (~300 lines)
+  - System requirements (GPU/CPU)
+  - Quick start with Docker Desktop
+  - Manual installation instructions
+  - Platform-specific notes (Windows WSL2, macOS Apple Silicon, Linux NVIDIA)
+  - Environment configuration guide
+  - Post-installation setup
+  - Troubleshooting common installation issues
+- Created docs/USER_GUIDE.md (~400 lines)
+  - Getting started and first-run setup
+  - Basic usage (push-to-talk, interim text)
+  - Complete voice command reference (38 commands across all categories)
+  - Custom commands and command configuration
+  - Personalization features (vocabulary, style learning, learned corrections)
+  - Advanced configuration (backend and extension settings)
+  - Tips and best practices for effective dictation
+  - Keyboard shortcuts and data management
+- Created docs/TROUBLESHOOTING.md (~350 lines)
+  - Backend issues (startup, health check, slow response, GPU not used)
+  - Extension issues (connection, activation, commands not working)
+  - Audio/microphone issues (permissions, no audio detected, poor quality)
+  - Transcription accuracy (technical terms, code syntax, punctuation)
+  - Performance issues (slow transcription, high memory usage)
+  - Authentication issues (invalid token, login problems)
+  - Docker issues (build failures, container won't stop, volume mounting)
+- Created docs/BETA_TESTING.md (~250 lines)
+  - How to participate in beta testing
+  - Testing priorities (core functionality, voice commands, personalization, platform-specific)
+  - Issue reporting templates and guidelines
+  - Feature request process
+  - Known limitations and expected behavior
+  - Testing scenarios for real-world usage
+- Updated README.md
+  - Added documentation links table
+  - Changed status from "Early Development" to "Beta Testing"
+  - Linked all new documentation files
+- Updated PROGRESS.md with Session 20 completion
+- All documentation files created and linked
 
 ---
 
