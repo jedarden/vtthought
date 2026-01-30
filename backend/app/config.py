@@ -54,6 +54,7 @@ class Settings(BaseSettings):
     stt_model: str = "base"
     stt_device: Literal["cpu", "cuda", "auto"] = "auto"
     stt_compute_type: Literal["int8", "float16", "float32"] = "float16"
+    stt_model_path: str = "~/.cache/whisper"  # User-writable location for models
 
     # LLM (ADR-006) - Configuration for Ollama
     llm_provider: Literal["ollama", "openai"] = "ollama"

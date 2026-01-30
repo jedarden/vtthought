@@ -44,6 +44,7 @@ class VoiceCommandDef:
     terminal: bool = False
     extract_params: bool = False
     param_pattern: str | None = None
+    params: str | None = None  # JSON string of static params
 
 
 # Voice command registry based on ADR-008 command categories

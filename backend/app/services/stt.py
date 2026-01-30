@@ -269,6 +269,7 @@ class StreamingWhisperSTT:
         model_size: str = "base",
         device: str = "auto",
         compute_type: str = "float16",
+        download_root: str = "~/.cache/whisper",
     ) -> None:
         """
         Initialize streaming STT.
@@ -277,8 +278,9 @@ class StreamingWhisperSTT:
             model_size: Whisper model size
             device: Device to use
             compute_type: Computation type
+            download_root: Directory for model storage
         """
-        self.stt = WhisperSTT(model_size, device, compute_type)
+        self.stt = WhisperSTT(model_size, device, compute_type, download_root)
         self.buffer: bytearray = bytearray()
         self.last_transcript = ""
         self.chunk_size = 16000  # 1 second at 16kHz
@@ -421,13 +423,17 @@ def get_stt_service() -> WhisperSTT:
     Uses model size from configuration.
     """
     from app.config import get_settings
+    import os
 
     settings = get_settings()
+    # Expand ~ to user home directory
+    model_path = os.path.expanduser(settings.stt_model_path)
 
     return WhisperSTT(
         model_size=settings.stt_model,
         device=settings.stt_device,
         compute_type=settings.stt_compute_type,
+        download_root=model_path,
     )
 
 
@@ -438,11 +444,15 @@ def get_streaming_stt() -> StreamingWhisperSTT:
     Each WebSocket connection gets its own instance.
     """
     from app.config import get_settings
+    import os
 
     settings = get_settings()
+    # Expand ~ to user home directory
+    model_path = os.path.expanduser(settings.stt_model_path)
 
     return StreamingWhisperSTT(
         model_size=settings.stt_model,
         device=settings.stt_device,
         compute_type=settings.stt_compute_type,
+        download_root=model_path,
     )

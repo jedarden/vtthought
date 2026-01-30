@@ -2,7 +2,7 @@
 
 > Located in `prompt/` - updated by marathon agent each iteration.
 
-## Current Status: Core Pipeline Implementation Complete
+## Current Status: Integration Testing & Bug Fixes Complete
 
 ### Completed
 - [x] Created GitHub repository (jedarden/vtthought)
@@ -76,11 +76,22 @@
   - [x] Extension errorHandling.ts module
   - [x] AudioStreamer reconnection logic
   - [x] WebSocket circuit breaker protection
+- [x] Integration Testing (Session 8)
+  - [x] Created `backend/test_integration.py` test suite
+  - [x] Health endpoint HTTP test
+  - [x] WebSocket connection and ping/pong test
+  - [x] Audio streaming with mock data test
+  - [x] All integration tests passing
+- [x] Bug Fixes (Session 8)
+  - [x] Fixed VoiceCommandDef dataclass missing `params` field
+  - [x] Added `stt_model_path` configuration setting
+  - [x] Fixed WhisperSTT model download path to use user-writable directory (~/.cache/whisper)
+  - [x] Updated StreamingWhisperSTT to pass download_root to WhisperSTT
 
 ### In Progress
-- [ ] Integration testing with Ollama running
-- [ ] Testing with real audio input
+- [ ] Testing with real audio input (requires Whisper model download ~150MB)
 - [ ] Performance tuning
+- [ ] Docker build verification
 
 ### Next Up
 - [ ] Authentication implementation (ADR-002)
@@ -174,6 +185,21 @@
   - Circuit breaker protection
   - Reconnect configuration options
 - All code compiles successfully
+
+### Session 8 - Integration Testing & Bug Fixes
+- Created integration test suite (`backend/test_integration.py`)
+  - HTTP health endpoint test
+  - WebSocket connection and control message test
+  - Mock audio streaming test
+- Fixed VoiceCommandDef dataclass missing `params` field
+- Added `stt_model_path` configuration setting (~/.cache/whisper)
+- Fixed WhisperSTT to use user-writable model directory
+- Updated StreamingWhisperSTT to pass download_root parameter
+- Installed missing dependencies (faster-whisper, ollama, numpy)
+- All integration tests passing:
+  - Health endpoint: PASS
+  - WebSocket connection: PASS
+  - Audio streaming: PASS
 
 ---
 
