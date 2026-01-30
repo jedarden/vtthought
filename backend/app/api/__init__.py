@@ -151,6 +151,7 @@ async def websocket_audio_stream(
                         streaming_stt,
                         cleaner,
                         session,
+                        user,
                     )
 
                 elif "bytes" in message:
@@ -193,6 +194,7 @@ async def handle_text_message(
     streaming_stt,
     cleaner,
     session: SessionState,
+    user,
 ) -> None:
     """
     Handle text WebSocket messages.
@@ -201,6 +203,14 @@ async def handle_text_message(
     - "ping": Heartbeat
     - "start": Start recording session
     - "stop": End recording session and finalize
+
+    Args:
+        websocket: WebSocket connection
+        data: Message data (JSON string)
+        streaming_stt: Streaming STT service
+        cleaner: LLM cleaner service
+        session: Session state
+        user: Authenticated user object (or None in single-user mode)
     """
     try:
         message = json.loads(data)
@@ -239,7 +249,8 @@ async def handle_text_message(
                 from app.services.style import get_style_learner
 
                 # Get user's vocabulary for LLM context
-                user_vocab = await get_user_vocabulary(user.id if user else "default")
+                user_id = user.id if user else "default"
+                user_vocab = await get_user_vocabulary(user_id)
                 vocab_list = [v["word"] for v in await user_vocab.get_all_words()]
 
                 # Get user's corrections
@@ -247,7 +258,7 @@ async def handle_text_message(
                 corrections_dict = {c["spoken"]: c["corrected"] for c in corrections_list}
 
                 # Get user's style preferences
-                style_learner = await get_style_learner(user.id if user else "default")
+                style_learner = await get_style_learner(user_id)
                 style_prompt = await style_learner.get_style_prompt()
 
                 # Build cleanup context

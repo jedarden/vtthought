@@ -9,6 +9,7 @@ import json
 import sys
 from pathlib import Path
 
+import pytest
 import websockets
 from websockets.exceptions import ConnectionClosed
 
@@ -20,6 +21,7 @@ from app.config import get_settings
 settings = get_settings()
 
 
+@pytest.mark.asyncio
 async def test_health_check():
     """Test HTTP health check endpoint."""
     import httpx
@@ -36,6 +38,7 @@ async def test_health_check():
             return False
 
 
+@pytest.mark.asyncio
 async def test_websocket_connection():
     """Test basic WebSocket connection."""
     print("\n=== Testing WebSocket Connection ===")
@@ -88,6 +91,7 @@ async def test_websocket_connection():
         return False
 
 
+@pytest.mark.asyncio
 async def test_audio_stream():
     """Test WebSocket with mock audio data."""
     print("\n=== Testing Audio Stream with Mock Data ===")
