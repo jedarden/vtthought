@@ -65,8 +65,14 @@ export interface StylePreferences {
  */
 export interface UserPreferences {
     language: string;
-    cleanup_level: 'light' | 'medium' | 'aggressive';
+    whisper_model?: string;
+    enable_llm_cleanup: boolean;
+    cleanup_level: 'minimal' | 'moderate' | 'aggressive';
+    enable_voice_commands: boolean;
     hotkey_mode: 'push_to_talk' | 'toggle';
+    vad_sensitivity?: number;
+    silence_duration_ms?: number;
+    max_recording_seconds?: number;
 }
 
 /**
@@ -157,7 +163,7 @@ export class UserPreferencesClient {
      * @param word - The word to remove
      */
     async removeVocabularyTerm(word: string): Promise<void> {
-        await this.request(`/api/user/vocabulary?word=${encodeURIComponent(word)}`, {
+        await this.request(`/api/user/vocabulary/${encodeURIComponent(word)}`, {
             method: 'DELETE',
         });
     }
@@ -215,11 +221,12 @@ export class UserPreferencesClient {
      */
     async updateUserPreferences(
         preferences: Partial<UserPreferences>
-    ): Promise<UserPreferences> {
-        return this.request<UserPreferences>('/api/user/preferences', {
+    ): Promise<{ status: string; preferences: UserPreferences }> {
+        const response = await this.request<{ status: string; preferences: UserPreferences }>('/api/user/preferences', {
             method: 'PUT',
             body: JSON.stringify(preferences),
         });
+        return response;
     }
 
     /**
@@ -242,9 +249,9 @@ export class UserPreferencesClient {
     /**
      * Export all user data (GDPR).
      */
-    async exportUserData(): Promise<string> {
-        const data = await this.request<{ data: string }>('/api/user/export');
-        return data.data;
+    async exportUserData(): Promise<{ user: Record<string, unknown>; preferences: Record<string, unknown>; vocabulary: unknown[]; corrections: unknown[]; style_preferences: unknown[]; voice_commands: unknown[] }> {
+        const data = await this.request<{ user: Record<string, unknown>; preferences: Record<string, unknown>; vocabulary: unknown[]; corrections: unknown[]; style_preferences: unknown[]; voice_commands: unknown[] }>('/api/user/export');
+        return data;
     }
 
     /**
@@ -732,30 +739,225 @@ export class UserPreferencesManager {
     }
 
     /**
-     * Show user preferences summary.
+     * Manage user preferences.
      */
-    async showUserPreferences(): Promise<void> {
+    async manageUserPreferences(): Promise<void> {
         const client = await this.getClient();
 
         try {
             const prefs = await client.getUserPreferences();
 
             const items: vscode.QuickPickItem[] = [
-                { label: 'Language', description: prefs.language },
-                { label: 'Cleanup Level', description: prefs.cleanup_level },
+                { label: '$(pencil) Edit Preferences', description: 'Change your settings' },
+                { label: '---', description: '' },
+                { label: 'Language', description: this.getLanguageDescription(prefs.language) },
+                { label: 'Cleanup Level', description: this.getCleanupLevelDescription(prefs.cleanup_level) },
                 { label: 'Hotkey Mode', description: prefs.hotkey_mode === 'push_to_talk' ? 'Push to Talk' : 'Toggle' },
+                { label: 'Enable LLM Cleanup', description: prefs.enable_llm_cleanup ? 'Yes' : 'No' },
+                { label: 'Enable Voice Commands', description: prefs.enable_voice_commands ? 'Yes' : 'No' },
             ];
 
-            await vscode.window.showQuickPick(items, {
+            const selection = await vscode.window.showQuickPick(items, {
                 title: 'VTThought User Preferences',
                 placeHolder: 'Your current preferences',
             });
+
+            if (selection?.label.startsWith('$(pencil)')) {
+                await this.editUserPreferences(prefs);
+            }
         } catch (error) {
             this.log(`Error loading preferences: ${error}`);
             vscode.window.showErrorMessage(
                 `Failed to load preferences: ${error instanceof Error ? error.message : String(error)}`
             );
         }
+    }
+
+    /**
+     * Edit user preferences interactively.
+     */
+    private async editUserPreferences(currentPrefs: UserPreferences): Promise<void> {
+        const editableItems: vscode.QuickPickItem[] = [
+            { label: 'Language', description: this.getLanguageDescription(currentPrefs.language) },
+            { label: 'Cleanup Level', description: this.getCleanupLevelDescription(currentPrefs.cleanup_level) },
+            { label: 'Hotkey Mode', description: currentPrefs.hotkey_mode === 'push_to_talk' ? 'Push to Talk' : 'Toggle' },
+            { label: 'Enable LLM Cleanup', description: currentPrefs.enable_llm_cleanup ? 'Yes' : 'No' },
+            { label: 'Enable Voice Commands', description: currentPrefs.enable_voice_commands ? 'Yes' : 'No' },
+        ];
+
+        const selection = await vscode.window.showQuickPick(editableItems, {
+            title: 'Edit Preference',
+            placeHolder: 'Select a preference to edit',
+        });
+
+        if (!selection) {
+            return;
+        }
+
+        try {
+            const client = await this.getClient();
+            let updatedPrefs: Partial<UserPreferences> = {};
+
+            switch (selection.label) {
+                case 'Language':
+                    updatedPrefs = await this.editLanguage(currentPrefs);
+                    break;
+                case 'Cleanup Level':
+                    updatedPrefs = await this.editCleanupLevel(currentPrefs);
+                    break;
+                case 'Hotkey Mode':
+                    updatedPrefs = await this.editHotkeyMode(currentPrefs);
+                    break;
+                case 'Enable LLM Cleanup':
+                    updatedPrefs = { ...currentPrefs, enable_llm_cleanup: !currentPrefs.enable_llm_cleanup };
+                    break;
+                case 'Enable Voice Commands':
+                    updatedPrefs = { ...currentPrefs, enable_voice_commands: !currentPrefs.enable_voice_commands };
+                    break;
+            }
+
+            if (Object.keys(updatedPrefs).length > 0) {
+                await client.updateUserPreferences(updatedPrefs);
+                this.log(`Updated preferences: ${JSON.stringify(updatedPrefs)}`);
+                vscode.window.showInformationMessage('Preferences updated');
+
+                // Recursively show edit menu for quick changes
+                const continueEditing = await vscode.window.showQuickPick(
+                    ['Yes', 'No'],
+                    { title: 'Continue Editing?', placeHolder: 'Edit another preference?' }
+                );
+                if (continueEditing === 'Yes') {
+                    // Fetch updated prefs and continue
+                    const newPrefs = await client.getUserPreferences();
+                    await this.editUserPreferences(newPrefs);
+                }
+            }
+        } catch (error) {
+            this.log(`Error updating preferences: ${error}`);
+            vscode.window.showErrorMessage(
+                `Failed to update preferences: ${error instanceof Error ? error.message : String(error)}`
+            );
+        }
+    }
+
+    /**
+     * Edit language preference.
+     */
+    private async editLanguage(currentPrefs: UserPreferences): Promise<Partial<UserPreferences>> {
+        const languageItems = [
+            { label: 'English', description: 'en' },
+            { label: 'Spanish', description: 'es' },
+            { label: 'French', description: 'fr' },
+            { label: 'German', description: 'de' },
+            { label: 'Italian', description: 'it' },
+            { label: 'Portuguese', description: 'pt' },
+            { label: 'Dutch', description: 'nl' },
+            { label: 'Japanese', description: 'ja' },
+            { label: 'Chinese (Simplified)', description: 'zh' },
+            { label: 'Korean', description: 'ko' },
+        ];
+
+        const selection = await vscode.window.showQuickPick(languageItems, {
+            title: 'Select Language',
+            placeHolder: 'Choose your transcription language',
+        });
+
+        if (selection) {
+            return { language: selection.description };
+        }
+        return {};
+    }
+
+    /**
+     * Edit cleanup level preference.
+     */
+    private async editCleanupLevel(currentPrefs: UserPreferences): Promise<Partial<UserPreferences>> {
+        const levelItems = [
+            {
+                label: 'Minimal',
+                description: 'light',
+                detail: 'Only remove filler words (um, uh, like)',
+            },
+            {
+                label: 'Moderate',
+                description: 'medium',
+                detail: 'Remove fillers, fix grammar and punctuation',
+            },
+            {
+                label: 'Aggressive',
+                description: 'aggressive',
+                detail: 'Full rewrite for clarity and flow',
+            },
+        ];
+
+        const selection = await vscode.window.showQuickPick(levelItems, {
+            title: 'Select Cleanup Level',
+            placeHolder: 'Choose how much to process your text',
+        });
+
+        if (selection) {
+            return { cleanup_level: selection.description as UserPreferences['cleanup_level'] };
+        }
+        return {};
+    }
+
+    /**
+     * Edit hotkey mode preference.
+     */
+    private async editHotkeyMode(currentPrefs: UserPreferences): Promise<Partial<UserPreferences>> {
+        const modeItems = [
+            {
+                label: 'Push to Talk',
+                description: 'push_to_talk',
+                detail: 'Hold hotkey to record, release to transcribe',
+            },
+            {
+                label: 'Toggle',
+                description: 'toggle',
+                detail: 'Press hotkey to start/stop recording',
+            },
+        ];
+
+        const selection = await vscode.window.showQuickPick(modeItems, {
+            title: 'Select Hotkey Mode',
+            placeHolder: 'Choose how you want to activate recording',
+        });
+
+        if (selection) {
+            return { hotkey_mode: selection.description as UserPreferences['hotkey_mode'] };
+        }
+        return {};
+    }
+
+    /**
+     * Get description for language code.
+     */
+    private getLanguageDescription(code: string): string {
+        const languages: Record<string, string> = {
+            en: 'English',
+            es: 'Spanish',
+            fr: 'French',
+            de: 'German',
+            it: 'Italian',
+            pt: 'Portuguese',
+            nl: 'Dutch',
+            ja: 'Japanese',
+            zh: 'Chinese (Simplified)',
+            ko: 'Korean',
+        };
+        return languages[code] || code;
+    }
+
+    /**
+     * Get description for cleanup level.
+     */
+    private getCleanupLevelDescription(level: UserPreferences['cleanup_level']): string {
+        const descriptions: Record<string, string> = {
+            minimal: 'Minimal - Only remove fillers',
+            moderate: 'Moderate - Fix grammar and punctuation',
+            aggressive: 'Aggressive - Full rewrite',
+        };
+        return descriptions[level] || level;
     }
 
     /**
@@ -770,7 +972,7 @@ export class UserPreferencesManager {
             // Show in new editor
             const document = await vscode.workspace.openTextDocument({
                 language: 'json',
-                content: JSON.stringify(JSON.parse(data), null, 2),
+                content: JSON.stringify(data, null, 2),
             });
 
             await vscode.window.showTextDocument(document);

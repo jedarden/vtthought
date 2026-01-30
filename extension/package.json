@@ -78,7 +78,7 @@
       },
       {
         "command": "vtthought.showUserPreferences",
-        "title": "VTThought: Show User Preferences"
+        "title": "VTThought: Manage User Preferences"
       },
       {
         "command": "vtthought.exportUserData",

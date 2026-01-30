@@ -274,8 +274,8 @@ export class VTThoughtExtension {
             vscode.commands.registerCommand('vtthought.showLearnedCorrections', async () => {
                 await this.showLearnedCorrections();
             }),
-            vscode.commands.registerCommand('vtthought.showUserPreferences', async () => {
-                await this.showUserPreferences();
+            vscode.commands.registerCommand('vtthought.manageUserPreferences', async () => {
+                await this.manageUserPreferences();
             }),
             vscode.commands.registerCommand('vtthought.exportUserData', async () => {
                 await this.exportUserData();
@@ -833,14 +833,21 @@ Backend URL: ${authStatus.backendUrl}
     }
 
     /**
-     * Show user preferences (ADR-011)
+     * Manage user preferences (ADR-011)
      */
-    private async showUserPreferences(): Promise<void> {
+    private async manageUserPreferences(): Promise<void> {
         if (!this.resources.userPreferencesManager) {
             vscode.window.showErrorMessage('VTThought: User preferences not initialized');
             return;
         }
-        await this.resources.userPreferencesManager.showUserPreferences();
+        await this.resources.userPreferencesManager.manageUserPreferences();
+    }
+
+    /**
+     * Show user preferences (ADR-011) - legacy method for compatibility
+     */
+    private async showUserPreferences(): Promise<void> {
+        return this.manageUserPreferences();
     }
 
     /**
