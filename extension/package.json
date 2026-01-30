@@ -31,6 +31,18 @@
       {
         "command": "vtthought.disconnectBackend",
         "title": "VTThought: Disconnect from Backend"
+      },
+      {
+        "command": "vtthought.setupAuthentication",
+        "title": "VTThought: Setup Authentication"
+      },
+      {
+        "command": "vtthought.clearAuthentication",
+        "title": "VTThought: Clear Authentication"
+      },
+      {
+        "command": "vtthought.showAuthenticationStatus",
+        "title": "VTThought: Show Authentication Status"
       }
     ],
     "keybindings": [

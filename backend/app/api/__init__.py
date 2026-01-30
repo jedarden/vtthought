@@ -3,15 +3,18 @@ VTThought API Routes
 
 WebSocket and HTTP endpoints for the VTThought backend.
 Implements the full streaming pipeline (ADR-005, ADR-006, ADR-007, ADR-008).
+Includes authentication endpoints (ADR-002).
 """
 import json
 import logging
 from dataclasses import dataclass, field
 from typing import Optional
 
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Query
 from fastapi.responses import JSONResponse
 
+from app.api import auth as auth_api
+from app.auth import validate_extension_token, get_default_user
 from app.config import get_settings
 from app.models import HealthResponse
 from app.models.transcription import (
@@ -28,6 +31,9 @@ logger = logging.getLogger(__name__)
 
 # Initialize router
 router = APIRouter()
+
+# Include auth routes
+router.include_router(auth_api.auth_router, tags=["authentication"])
 
 # Store active WebSocket connections
 active_connections: list[WebSocket] = []
@@ -59,21 +65,51 @@ async def health_check() -> HealthResponse:
 
 
 @router.websocket("/ws/audio")
-async def websocket_audio_stream(websocket: WebSocket) -> None:
+async def websocket_audio_stream(
+    websocket: WebSocket,
+    token: Optional[str] = Query(None, description="Extension authentication token")
+) -> None:
     """
-    WebSocket endpoint for audio streaming.
+    WebSocket endpoint for audio streaming with token authentication (ADR-002).
 
     Implements the full streaming pipeline:
-    1. Receive binary audio chunks from extension
-    2. Stream interim STT results (partial transcription)
-    3. On silence: finalize STT, stream LLM cleanup tokens
-    4. Send final result with voice commands
+    1. Validate extension token (optional in single-user mode)
+    2. Receive binary audio chunks from extension
+    3. Stream interim STT results (partial transcription)
+    4. On silence: finalize STT, stream LLM cleanup tokens
+    5. Send final result with voice commands
 
     Protocol (ADR-006):
     - Server -> Client: interim, streaming, final, error messages
     - Client -> Server: binary audio, control messages (start/stop/ping)
+
+    Authentication:
+    - In multi-user mode: token query parameter is required
+    - In single-user mode: authentication is skipped
     """
     settings = get_settings()
+
+    # Determine if single-user mode (development without GitHub OAuth configured)
+    single_user_mode = settings.environment == "development" and not settings.github_client_id
+
+    # Authenticate connection
+    user = None
+    if single_user_mode:
+        # Single-user mode: use default user
+        user = await get_default_user()
+        logger.info("WebSocket connection in single-user mode")
+    else:
+        # Multi-user mode: validate token
+        if not token:
+            await websocket.close(code=4001, reason="Missing authentication token")
+            return
+
+        user = await validate_extension_token(token)
+        if not user:
+            await websocket.close(code=4001, reason="Invalid authentication token")
+            return
+
+        logger.info(f"WebSocket connection authenticated for user: {user.email}")
 
     await websocket.accept()
     active_connections.append(websocket)

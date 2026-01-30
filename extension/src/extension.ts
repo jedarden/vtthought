@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import { VoiceInputViewProvider } from './voiceInputViewProvider';
 import { AudioStreamer } from './audioStreamer';
 import { DictationHandler } from './textInsertion';
+import { TokenManager, getAuthStatus } from './tokenManager';
 
 /**
  * VTThought Extension State
@@ -10,6 +11,7 @@ interface VTThoughtState {
     isRecording: boolean;
     isConnected: boolean;
     backendUrl: string;
+    isAuthenticated: boolean;
 }
 
 /**
@@ -26,6 +28,9 @@ export class VTThoughtExtension {
     // State
     private state: VTThoughtState;
 
+    // Token Manager (ADR-002)
+    private readonly tokenManager: TokenManager;
+
     // WebView Provider for audio capture
     private readonly voiceInputViewProvider: VoiceInputViewProvider;
 
@@ -39,12 +44,16 @@ export class VTThoughtExtension {
         this.context = context;
         this.outputChannel = vscode.window.createOutputChannel('VTThought');
 
+        // Create token manager (ADR-002)
+        this.tokenManager = TokenManager.create(context);
+
         // Initialize state from configuration
         const config = vscode.workspace.getConfiguration('vtthought');
         this.state = {
             isRecording: false,
             isConnected: false,
-            backendUrl: config.get('backendUrl', 'ws://localhost:8000/ws/audio')
+            backendUrl: config.get('backendUrl', 'http://localhost:8000'),
+            isAuthenticated: false
         };
 
         // Create status bar items
@@ -90,8 +99,17 @@ export class VTThoughtExtension {
     /**
      * Activate the extension
      */
-    public activate(): void {
+    public async activate(): Promise<void> {
         this.log('VTThought Extension Activated');
+
+        // Check authentication status (ADR-002)
+        const authStatus = await getAuthStatus(this.tokenManager);
+        this.state.isAuthenticated = authStatus.isConfigured;
+        this.state.backendUrl = authStatus.backendUrl;
+
+        if (!authStatus.isConfigured) {
+            this.log('Authentication not configured. Run "VTThought: Setup Authentication" to configure.');
+        }
 
         // Register WebView provider
         this.context.subscriptions.push(
@@ -108,9 +126,9 @@ export class VTThoughtExtension {
         this.statusBarItem.show();
         this.connectionStatusBarItem.show();
 
-        // Auto-connect if enabled
+        // Auto-connect if enabled and authenticated
         const config = vscode.workspace.getConfiguration('vtthought');
-        if (config.get('autoConnect', true)) {
+        if (authStatus.isConfigured && config.get('autoConnect', true)) {
             this.connectBackend().catch(err => {
                 this.log(`Auto-connect failed: ${err}`);
             });
@@ -158,6 +176,16 @@ export class VTThoughtExtension {
             }),
             vscode.commands.registerCommand('vtthought.disconnectBackend', () => {
                 this.disconnect();
+            }),
+            // Authentication commands (ADR-002)
+            vscode.commands.registerCommand('vtthought.setupAuthentication', async () => {
+                await this.setupAuthentication();
+            }),
+            vscode.commands.registerCommand('vtthought.clearAuthentication', async () => {
+                await this.clearAuthentication();
+            }),
+            vscode.commands.registerCommand('vtthought.showAuthenticationStatus', async () => {
+                await this.showAuthenticationStatus();
             })
         );
 
@@ -234,20 +262,184 @@ export class VTThoughtExtension {
     }
 
     /**
+     * Setup authentication (ADR-002)
+     */
+    private async setupAuthentication(): Promise<void> {
+        this.log('Starting authentication setup...');
+
+        // Step 1: Get backend URL
+        const backendUrl = await vscode.window.showInputBox({
+            prompt: 'Enter your VTThought backend URL',
+            value: this.state.backendUrl,
+            placeHolder: 'http://localhost:8000',
+            validateInput: (value) => {
+                if (!value || !value.startsWith('http')) {
+                    return 'Please enter a valid URL (http:// or https://)';
+                }
+                return null;
+            }
+        });
+
+        if (!backendUrl) {
+            this.log('Authentication setup cancelled: No backend URL provided');
+            return;
+        }
+
+        // Normalize URL (remove trailing slash)
+        const normalizedUrl = backendUrl.replace(/\/$/, '');
+        await this.tokenManager.storeBackendUrl(normalizedUrl);
+        this.state.backendUrl = normalizedUrl;
+
+        // Step 2: Test backend connection
+        this.log(`Testing connection to ${normalizedUrl}...`);
+        try {
+            const response = await fetch(`${normalizedUrl}/api/auth/mode`);
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}`);
+            }
+
+            const authMode = await response.json() as { mode: string; single_user_mode: boolean };
+            this.log(`Backend auth mode: ${authMode.mode}`);
+
+            if (authMode.single_user_mode) {
+                // Single-user mode: no token needed
+                vscode.window.showInformationMessage(
+                    'VTThought: Backend configured in single-user mode. No token required.'
+                );
+                this.state.isAuthenticated = true;
+                this.updateStatusDisplay();
+                return;
+            }
+        } catch (error) {
+            const message = error instanceof Error ? error.message : String(error);
+            vscode.window.showErrorMessage(
+                `VTThought: Failed to connect to backend at ${normalizedUrl}. ${message}`
+            );
+            this.log(`Backend connection failed: ${message}`);
+            return;
+        }
+
+        // Step 3: Get token from user
+        const token = await vscode.window.showInputBox({
+            prompt: 'Enter your VTThought extension token (from backend settings)',
+            password: true,
+            placeHolder: 'vct_...',
+            validateInput: (value) => {
+                if (!value || !value.startsWith('vct_')) {
+                    return 'Please enter a valid token (starts with vct_)';
+                }
+                return null;
+            }
+        });
+
+        if (!token) {
+            this.log('Authentication setup cancelled: No token provided');
+            return;
+        }
+
+        // Store token
+        await this.tokenManager.storeToken(token);
+        this.state.isAuthenticated = true;
+
+        this.log('Authentication configured successfully');
+        vscode.window.showInformationMessage(
+            'VTThought: Authentication configured successfully!'
+        );
+        this.updateStatusDisplay();
+    }
+
+    /**
+     * Clear authentication (ADR-002)
+     */
+    private async clearAuthentication(): Promise<void> {
+        const result = await vscode.window.showWarningMessage(
+            'Are you sure you want to clear your authentication settings?',
+            { modal: true },
+            'Clear',
+            'Cancel'
+        );
+
+        if (result === 'Clear') {
+            await this.tokenManager.clearAll();
+            this.state.isAuthenticated = false;
+            this.disconnect();
+            this.log('Authentication cleared');
+            vscode.window.showInformationMessage('VTThought: Authentication cleared');
+            this.updateStatusDisplay();
+        }
+    }
+
+    /**
+     * Show authentication status (ADR-002)
+     */
+    private async showAuthenticationStatus(): Promise<void> {
+        const authStatus = await getAuthStatus(this.tokenManager);
+
+        const message = `
+VTThought Authentication Status
+===============================
+Authenticated: ${authStatus.isConfigured ? 'Yes' : 'No'}
+Backend URL: ${authStatus.backendUrl}
+`.trim();
+
+        this.log(message);
+        vscode.window.showInformationMessage(message);
+    }
+
+    /**
      * Connect to backend WebSocket
      */
     private async connectBackend(): Promise<void> {
-        const config = vscode.workspace.getConfiguration('vtthought');
-        const apiUrl = config.get('apiUrl', 'http://localhost:8000');
-        const wsUrl = config.get('backendUrl', 'ws://localhost:8000/ws/audio');
+        // Check authentication first (ADR-002)
+        if (!this.state.isAuthenticated) {
+            const result = await vscode.window.showWarningMessage(
+                'VTThought is not configured. Would you like to set up authentication?',
+                'Setup',
+                'Cancel'
+            );
+
+            if (result === 'Setup') {
+                await this.setupAuthentication();
+                if (!this.state.isAuthenticated) {
+                    this.log('Connection cancelled: Authentication not configured');
+                    return;
+                }
+            } else {
+                this.log('Connection cancelled: Authentication not configured');
+                return;
+            }
+        }
+
+        const apiUrl = await this.tokenManager.getBackendUrl();
+        const wsUrl = await this.tokenManager.getWebSocketUrl();
 
         this.log(`Connecting to backend: ${apiUrl}`);
 
         try {
             // First, verify backend is reachable via health check
-            const response = await fetch(`${apiUrl}/api/health`);
+            const authHeader = await this.tokenManager.getAuthHeader();
+            const headers: Record<string, string> = {};
+            if (authHeader) {
+                headers['Authorization'] = authHeader;
+            }
+
+            const response = await fetch(`${apiUrl}/api/health`, { headers });
 
             if (!response.ok) {
+                if (response.status === 401) {
+                    // Token expired or invalid
+                    await this.tokenManager.clearToken();
+                    this.state.isAuthenticated = false;
+                    vscode.window.showErrorMessage(
+                        'VTThought: Authentication failed. Please set up authentication again.',
+                        'Setup'
+                    ).then(action => {
+                        if (action === 'Setup') {
+                            vscode.commands.executeCommand('vtthought.setupAuthentication');
+                        }
+                    });
+                    return;
+                }
                 throw new Error(`Health check failed: ${response.status}`);
             }
 
@@ -284,7 +476,7 @@ export class VTThoughtExtension {
         } catch (error) {
             this.log(`Connection failed: ${error}`);
             vscode.window.showErrorMessage(
-                `VTThought: Failed to connect to backend at ${apiUrl}. Ensure the backend is running.`
+                `VTThought: Failed to connect to backend at ${apiUrl}. Ensure the backend is running and try again.`
             );
             this.state.isConnected = false;
             this.updateStatusDisplay();

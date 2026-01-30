@@ -2,7 +2,7 @@
 
 > Located in `prompt/` - updated by marathon agent each iteration.
 
-## Current Status: Integration Testing & Bug Fixes Complete
+## Current Status: Authentication Implementation Complete (ADR-002)
 
 ### Completed
 - [x] Created GitHub repository (jedarden/vtthought)
@@ -87,17 +87,43 @@
   - [x] Added `stt_model_path` configuration setting
   - [x] Fixed WhisperSTT model download path to use user-writable directory (~/.cache/whisper)
   - [x] Updated StreamingWhisperSTT to pass download_root to WhisperSTT
+- [x] Authentication Implementation (Session 9 - ADR-002)
+  - [x] Backend auth module (`backend/app/auth/__init__.py`)
+    - Token generation (vct_ prefix, base64 encoding)
+    - Token validation and hashing
+    - User management (in-memory storage for single-user mode)
+    - Password hashing with bcrypt
+    - JWT token creation for web UI sessions
+  - [x] Auth API endpoints (`backend/app/api/auth.py`)
+    - GET /api/auth/mode - Check authentication mode
+    - POST /api/auth/register - User registration
+    - POST /api/auth/login - Password login
+    - POST /api/auth/tokens - Create extension token
+    - GET /api/auth/tokens - List tokens
+    - DELETE /api/auth/tokens/{id} - Revoke token
+  - [x] WebSocket authentication
+    - Token validation via query parameter
+    - Single-user mode support (no auth required in development)
+  - [x] Extension TokenManager (`extension/src/tokenManager.ts`)
+    - Secure token storage with VS Code secrets API
+    - Backend URL configuration
+    - Authenticated WebSocket URL generation
+  - [x] Extension authentication commands
+    - vtthought.setupAuthentication - Setup wizard
+    - vtthought.clearAuthentication - Clear stored credentials
+    - vtthought.showAuthenticationStatus - Show auth status
+  - [x] Extension package.json updated with new commands
 
 ### In Progress
 - [ ] Testing with real audio input (requires Whisper model download ~150MB)
 - [ ] Performance tuning
-- [ ] Docker build verification
+- [ ] Docker build verification (requires Docker daemon)
 
 ### Next Up
-- [ ] Authentication implementation (ADR-002)
-- [ ] Voice command refinement and testing
 - [ ] User personalization (ADR-011)
 - [ ] First-run setup (ADR-017)
+- [ ] Voice command refinement and testing
+- [ ] OAuth integration (GitHub)
 
 ---
 
@@ -200,6 +226,16 @@
   - Health endpoint: PASS
   - WebSocket connection: PASS
   - Audio streaming: PASS
+
+### Session 9 - Authentication Implementation (ADR-002)
+- Implemented complete authentication system per ADR-002
+- Backend auth module with token generation/validation
+- Auth API endpoints for token management
+- WebSocket authentication with query parameter support
+- Extension TokenManager using VS Code secrets API
+- Authentication setup wizard and commands
+- All code compiles successfully (Python and TypeScript)
+- Ready for testing with backend running
 
 ---
 
