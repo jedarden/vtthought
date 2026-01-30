@@ -20,6 +20,7 @@ from app.models.transcription import (
     create_interim_message,
     create_streaming_message,
 )
+from app.services.commands import parse_voice_commands
 from app.services.llm import CleanupContext, get_cleaner
 from app.services.stt import get_streaming_stt
 
@@ -206,13 +207,15 @@ async def handle_text_message(
 
                 cleaned_text = "".join(cleaned_tokens).strip()
 
+                # Parse voice commands (ADR-008)
+                text_with_commands, commands = parse_voice_commands(cleaned_text)
+
                 # Send final result
-                # TODO: Parse voice commands (ADR-008)
                 await websocket.send_json(
                     create_final_message(
                         raw=final_result.text,
-                        cleaned=cleaned_text,
-                        commands=[],
+                        cleaned=text_with_commands,
+                        commands=commands,
                     ).model_dump()
                 )
 

@@ -58,16 +58,20 @@
   - [x] `TerminalInserter` for terminal output
   - [x] `DictationHandler` for routing to editor/terminal
 - [x] Voice Commands (ADR-008)
-  - [x] `CommandParser` with keyword detection
+  - [x] `CommandParser` with keyword detection (extension)
+  - [x] `CommandParser` backend implementation (Python)
   - [x] Execution commands (enter, cancel)
   - [x] Editing commands (undo, clear line, select all)
   - [x] Navigation commands (go to line)
   - [x] VS Code commands (save, close, terminal)
   - [x] `CommandExecutor` for command execution
+  - [x] Backend WebSocket integration with voice command parsing
+  - [x] Homophone disambiguation
 
 ### In Progress
 - [ ] Integration testing with Ollama running
 - [ ] Testing with real audio input
+- [ ] Backend voice command parser integration
 - [ ] Performance tuning
 
 ### Next Up
@@ -130,6 +134,18 @@
   - Execution, editing, navigation, VS Code commands
 - Updated WebSocket endpoint with full streaming pipeline
 - All code compiles and passes linting
+
+### Session 6 - Voice Commands Backend Integration
+- Implemented `CommandParser` backend service in Python (ADR-008)
+  - Full command registry matching extension implementation
+  - Parameter extraction for navigation commands
+  - Homophone disambiguation support
+- Integrated voice command parsing into WebSocket endpoint
+  - Commands extracted from cleaned LLM output
+  - Command list sent to extension for execution
+- Verified extension and backend compilation
+- Extension TypeScript compilation successful
+- Backend Python syntax validation successful
 
 ---
 
