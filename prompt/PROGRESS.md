@@ -67,18 +67,25 @@
   - [x] `CommandExecutor` for command execution
   - [x] Backend WebSocket integration with voice command parsing
   - [x] Homophone disambiguation
+- [x] Error Handling and Circuit Breaker (ADR-015)
+  - [x] Error types module (VTThoughtError hierarchy)
+  - [x] CircuitBreaker class with state management
+  - [x] Retry logic with exponential backoff and jitter
+  - [x] STT service validation and error handling
+  - [x] LLM provider connection error handling
+  - [x] Extension errorHandling.ts module
+  - [x] AudioStreamer reconnection logic
+  - [x] WebSocket circuit breaker protection
 
 ### In Progress
 - [ ] Integration testing with Ollama running
 - [ ] Testing with real audio input
-- [ ] Backend voice command parser integration
 - [ ] Performance tuning
 
 ### Next Up
 - [ ] Authentication implementation (ADR-002)
 - [ ] Voice command refinement and testing
 - [ ] User personalization (ADR-011)
-- [ ] Error handling and circuit breaker (ADR-015)
 - [ ] First-run setup (ADR-017)
 
 ---
@@ -146,6 +153,27 @@
 - Verified extension and backend compilation
 - Extension TypeScript compilation successful
 - Backend Python syntax validation successful
+
+### Session 7 - Error Handling and Circuit Breaker (ADR-015)
+- Implemented comprehensive error handling infrastructure
+- Backend error types (`backend/app/errors.py`)
+  - VTThoughtError base class with category system
+  - ConnectionError, BackendError, AuthenticationError, RateLimitError, TimeoutError, ValidationError
+  - CircuitBreaker class with CLOSED/OPEN/HALF_OPEN states
+  - retry_with_backoff function with exponential backoff and jitter
+- Updated STT service with validation and error handling
+- Updated LLM providers (Ollama) with connection error handling
+- Extension error handling (`extension/src/errorHandling.ts`)
+  - Error type definitions matching backend
+  - CircuitBreaker class for service protection
+  - retryWithBackoff utility with jitter
+  - ErrorLogger for output channel logging
+- Updated AudioStreamer with reconnection logic
+  - ConnectionState tracking with reconnection attempts
+  - Automatic reconnection with exponential backoff
+  - Circuit breaker protection
+  - Reconnect configuration options
+- All code compiles successfully
 
 ---
 
