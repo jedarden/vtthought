@@ -2,11 +2,16 @@
 Database module for VTThought user personalization (ADR-011).
 
 Provides SQLite database connection management and schema initialization.
+
+Performance optimizations:
+- Connection pool to reduce connection overhead
+- WAL mode for better concurrency
+- Prepared statements cached internally by SQLite
 """
 import asyncio
 from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import AsyncGenerator
+from typing import AsyncGenerator, Optional
 
 import aiosqlite
 
@@ -18,6 +23,75 @@ settings = get_settings()
 DATABASE_DIR = Path.home() / ".cache" / "vtthought"
 DATABASE_DIR.mkdir(parents=True, exist_ok=True)
 DATABASE_PATH = DATABASE_DIR / "vtthought.db"
+
+# Performance: Connection pool (reduces connection overhead)
+# SQLite with WAL mode supports multiple readers efficiently
+_pool_size: int = 5
+_connection_pool: list[aiosqlite.Connection] = []
+_pool_lock = asyncio.Lock()
+_pool_initialized = False
+
+
+async def _create_connection() -> aiosqlite.Connection:
+    """Create a new database connection with optimal settings."""
+    db = await aiosqlite.connect(DATABASE_PATH)
+    db.row_factory = aiosqlite.Row
+
+    # Enable foreign keys
+    await db.execute("PRAGMA foreign_keys = ON")
+
+    # Enable WAL mode for better concurrency (allows multiple readers)
+    await db.execute("PRAGMA journal_mode = WAL")
+
+    # Performance: Set synchronous mode to NORMAL for faster writes
+    # (still safe with WAL mode)
+    await db.execute("PRAGMA synchronous = NORMAL")
+
+    # Performance: Increase cache size (default is 2MB, use 10MB)
+    await db.execute("PRAGMA cache_size = -10000")
+
+    # Performance: Use memory-mapped I/O (faster for read-heavy workloads)
+    await db.execute("PRAGMA mmap_size = 268435456")  # 256MB
+
+    return db
+
+
+async def get_pooled_connection() -> aiosqlite.Connection:
+    """
+    Get a connection from the pool.
+
+    Performance: Reuses connections to reduce overhead.
+    Creates new connection if pool is exhausted.
+    """
+    global _pool_initialized
+
+    # Initialize pool on first use
+    if not _pool_initialized:
+        async with _pool_lock:
+            if not _pool_initialized:
+                for _ in range(_pool_size):
+                    conn = await _create_connection()
+                    _connection_pool.append(conn)
+                _pool_initialized = True
+
+    # Try to get connection from pool
+    async with _pool_lock:
+        if _connection_pool:
+            return _connection_pool.pop()
+
+    # Pool exhausted, create temporary connection
+    return await _create_connection()
+
+
+async def return_connection(conn: aiosqlite.Connection) -> None:
+    """Return a connection to the pool (or close if temp)."""
+    async with _pool_lock:
+        if len(_connection_pool) < _pool_size:
+            _connection_pool.append(conn)
+            return
+
+    # Pool full, close the connection
+    await conn.close()
 
 
 async def init_db() -> aiosqlite.Connection:
@@ -150,30 +224,31 @@ async def get_db() -> AsyncGenerator[aiosqlite.Connection, None]:
     """
     Context manager for database connections.
 
+    Performance: Uses connection pool to reduce overhead.
+
     Yields:
         Database connection with row factory enabled
     """
-    db = await aiosqlite.connect(DATABASE_PATH)
-    db.row_factory = aiosqlite.Row
-    await db.execute("PRAGMA foreign_keys = ON")
+    db = await get_pooled_connection()
 
     try:
         yield db
     finally:
-        await db.close()
+        # Return connection to pool instead of closing
+        await return_connection(db)
 
 
 async def get_db_connection() -> aiosqlite.Connection:
     """
     Get a database connection (for use with async context managers).
 
+    Performance: Returns a connection from the pool.
+    Caller is responsible for returning it via return_connection().
+
     Returns:
         Database connection
     """
-    db = await aiosqlite.connect(DATABASE_PATH)
-    db.row_factory = aiosqlite.Row
-    await db.execute("PRAGMA foreign_keys = ON")
-    return db
+    return await get_pooled_connection()
 
 
 class UserRepository:

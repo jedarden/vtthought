@@ -174,9 +174,16 @@
     - Model loading: PASS (CPU with int8 compute type)
     - STT service: PASS (transcription with VAD filter)
     - WebSocket audio: PASS (full streaming pipeline)
+- [x] Performance Tuning (Session 14)
+  - [x] Added connection pool to database module (5 connections)
+  - [x] Pre-fetch user context at WebSocket connect time
+  - [x] Cache cleanup prompts in session state
+  - [x] Bounded audio buffer (5 minute max to prevent memory issues)
+  - [x] Optimized SQLite pragmas (WAL mode, cache size, mmap)
+  - [x] Reduced blocking DB queries during transcription hot path
+  - [x] Added performance documentation to SessionState
 
 ### In Progress
-- [ ] Performance tuning
 - [ ] Docker build verification (requires Docker daemon)
 
 ### Next Up
@@ -396,6 +403,23 @@
   - STT service: PASS
   - WebSocket audio: PASS
 - Confirmed full audio pipeline works end-to-end
+
+### Session 14 - Performance Optimizations
+- Analyzed codebase for performance bottlenecks using Explore agent
+- Implemented database connection pooling (5 connections, async lock)
+- Optimized SQLite pragmas for better performance:
+  - WAL mode for concurrent readers
+  - NORMAL synchronous mode for faster writes
+  - 10MB cache size (up from 2MB default)
+  - 256MB memory-mapped I/O
+- Pre-fetch user context at WebSocket connect time:
+  - Vocabulary, corrections, style preferences loaded once
+  - Cleanup prompt cached in session state
+  - Eliminates blocking DB queries during transcription
+- Added bounded audio buffer (5 minute max, ~9.6MB)
+  - Prevents unbounded memory growth
+  - Automatic reset with warning when limit exceeded
+- Documented performance optimizations in code comments
 
 ---
 

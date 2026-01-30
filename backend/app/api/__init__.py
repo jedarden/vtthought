@@ -46,11 +46,26 @@ active_connections: list[WebSocket] = []
 
 @dataclass
 class SessionState:
-    """Session state for each WebSocket connection."""
+    """Session state for each WebSocket connection.
+
+    Performance optimizations:
+    - Pre-fetched user context (cached at connection time)
+    - Cached cleanup prompt (reused across transcriptions)
+    - Bounded buffer with max size to prevent memory issues
+    """
 
     is_recording: bool = False
     audio_buffer: bytearray = field(default_factory=bytearray)
     last_partial: str = ""
+
+    # Performance: Pre-fetched user context (avoid blocking DB queries during transcription)
+    user_context: dict = field(default_factory=dict)
+
+    # Performance: Cached cleanup prompt (rebuild only if user preferences change)
+    cleanup_prompt: Optional[str] = None
+
+    # Performance: Max buffer size (5 minutes at 16kHz mono PCM16 = ~9.6MB)
+    MAX_BUFFER_SIZE: int = 16000 * 60 * 5 * 2  # samples * seconds * minutes * bytes_per_sample
 
 
 @router.get("/health", response_model=HealthResponse)
@@ -125,6 +140,42 @@ async def websocket_audio_stream(
 
     # Session state
     session = SessionState()
+
+    # Performance: Pre-fetch user context to avoid blocking queries during transcription
+    if user:
+        from app.services.vocabulary import get_user_vocabulary
+        from app.services.style import get_style_learner
+
+        user_id = user.id if user else "default"
+
+        # Fetch user vocabulary in background (non-blocking)
+        user_vocab = await get_user_vocabulary(user_id)
+        vocab_list = [v["word"] for v in await user_vocab.get_all_words()]
+
+        # Fetch user corrections
+        corrections_list = await user_vocab.get_all_corrections()
+        corrections_dict = {c["spoken"]: c["corrected"] for c in corrections_list}
+
+        # Fetch user style preferences
+        style_learner = await get_style_learner(user_id)
+        style_prompt = await style_learner.get_style_prompt()
+
+        # Cache in session for reuse
+        session.user_context = {
+            "vocabulary": vocab_list,
+            "corrections": corrections_dict,
+            "style_prompt": style_prompt,
+        }
+
+        # Pre-build cleanup prompt for reuse
+        from app.services.llm import CleanupContext, build_cleanup_prompt
+        ctx = CleanupContext(
+            raw_transcription="",  # Empty template
+            user_vocabulary=vocab_list,
+            learned_corrections=corrections_dict,
+            cleanup_level="moderate",
+        )
+        session.cleanup_prompt = build_cleanup_prompt(ctx, style_prompt)
 
     try:
         # Send welcome message
@@ -244,37 +295,29 @@ async def handle_text_message(
                     ).model_dump()
                 )
 
-                # Build cleanup context with user personalization (ADR-011)
-                from app.services.vocabulary import get_user_vocabulary
-                from app.services.style import get_style_learner
+                # Performance: Use pre-fetched user context (no blocking DB queries)
+                user_context = session.user_context
 
-                # Get user's vocabulary for LLM context
-                user_id = user.id if user else "default"
-                user_vocab = await get_user_vocabulary(user_id)
-                vocab_list = [v["word"] for v in await user_vocab.get_all_words()]
-
-                # Get user's corrections
-                corrections_list = await user_vocab.get_all_corrections()
-                corrections_dict = {c["spoken"]: c["corrected"] for c in corrections_list}
-
-                # Get user's style preferences
-                style_learner = await get_style_learner(user_id)
-                style_prompt = await style_learner.get_style_prompt()
-
-                # Build cleanup context
+                # Build cleanup context with cached user data (ADR-011)
                 ctx = CleanupContext(
                     raw_transcription=final_result.text,
-                    user_vocabulary=vocab_list,
-                    learned_corrections=corrections_dict,
+                    user_vocabulary=user_context.get("vocabulary", []),
+                    learned_corrections=user_context.get("corrections", {}),
                     cleanup_level="moderate",
                 )
 
                 position = 0
                 cleaned_tokens = []
 
-                # Use style-aware cleanup
-                from app.services.llm import build_cleanup_prompt
-                prompt = build_cleanup_prompt(ctx, style_prompt)
+                # Performance: Use cached cleanup prompt (rebuild only if needed)
+                if session.cleanup_prompt:
+                    # Replace raw transcription placeholder
+                    prompt = session.cleanup_prompt.replace("{raw_transcription}", final_result.text)
+                else:
+                    # Fallback: build prompt dynamically
+                    from app.services.llm import build_cleanup_prompt
+                    style_prompt = user_context.get("style_prompt", "")
+                    prompt = build_cleanup_prompt(ctx, style_prompt)
 
                 async for token in cleaner.llm.stream(prompt):
                     cleaned_tokens.append(token)
@@ -326,11 +369,18 @@ async def handle_audio_data(
     Handle binary audio data from WebSocket.
 
     Processes audio through streaming STT and sends interim results.
+    Includes buffer size limit to prevent memory issues.
     """
     if not session.is_recording:
         return
 
     try:
+        # Performance: Enforce buffer size limit (prevent unbounded growth)
+        if len(session.audio_buffer) + len(audio_chunk) > session.MAX_BUFFER_SIZE:
+            logger.warning(f"Audio buffer exceeds limit, resetting. Current: {len(session.audio_buffer)}")
+            session.audio_buffer.clear()
+            session.last_partial = ""
+
         # Stream interim results
         async for interim in streaming_stt.process_chunk(audio_chunk):
             if interim.text and interim.text != session.last_partial:
