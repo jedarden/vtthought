@@ -400,14 +400,22 @@ class UserRepository:
         )
         await self.db.commit()
 
-    async def get_custom_commands(self) -> list[dict]:
+    async def get_custom_commands(self, include_disabled: bool = False) -> list[dict]:
         """Get user's custom voice commands."""
-        cursor = await self.db.execute(
-            """SELECT id, triggers, action, params, enabled
-               FROM user_voice_commands
-               WHERE user_id = ? AND enabled = 1""",
-            (self.user_id,)
-        )
+        if include_disabled:
+            cursor = await self.db.execute(
+                """SELECT id, triggers, action, params, enabled, created_at
+                   FROM user_voice_commands
+                   WHERE user_id = ?""",
+                (self.user_id,)
+            )
+        else:
+            cursor = await self.db.execute(
+                """SELECT id, triggers, action, params, enabled, created_at
+                   FROM user_voice_commands
+                   WHERE user_id = ? AND enabled = 1""",
+                (self.user_id,)
+            )
         rows = await cursor.fetchall()
         import json
         return [
@@ -416,6 +424,8 @@ class UserRepository:
                 "triggers": json.loads(row["triggers"]),
                 "action": row["action"],
                 "params": json.loads(row["params"]),
+                "enabled": bool(row["enabled"]),
+                "created_at": row["created_at"],
             }
             for row in rows
         ]
@@ -424,18 +434,90 @@ class UserRepository:
         self,
         triggers: list[str],
         action: str,
-        params: dict | None = None
-    ) -> None:
-        """Add a custom voice command."""
+        params: dict | None = None,
+        enabled: bool = True
+    ) -> str:
+        """Add a custom voice command. Returns command ID."""
         import json
         import uuid
+        cmd_id = str(uuid.uuid4())
         await self.db.execute(
             """INSERT INTO user_voice_commands
-               (id, user_id, triggers, action, params)
-               VALUES (?, ?, ?, ?, ?)""",
-            (str(uuid.uuid4()), self.user_id, json.dumps(triggers), action, json.dumps(params or {}))
+               (id, user_id, triggers, action, params, enabled)
+               VALUES (?, ?, ?, ?, ?, ?)""",
+            (cmd_id, self.user_id, json.dumps(triggers), action, json.dumps(params or {}), int(enabled))
         )
         await self.db.commit()
+        return cmd_id
+
+    async def delete_custom_command(self, cmd_id: str) -> bool:
+        """Delete a custom voice command by ID."""
+        cursor = await self.db.execute(
+            "DELETE FROM user_voice_commands WHERE user_id = ? AND id = ?",
+            (self.user_id, cmd_id)
+        )
+        await self.db.commit()
+        return cursor.rowcount > 0
+
+    async def update_custom_command(
+        self,
+        cmd_id: str,
+        triggers: list[str] | None = None,
+        action: str | None = None,
+        params: dict | None = None,
+        enabled: bool | None = None
+    ) -> bool:
+        """Update a custom voice command by ID."""
+        import json
+        updates = []
+        values = []
+
+        if triggers is not None:
+            updates.append("triggers = ?")
+            values.append(json.dumps(triggers))
+        if action is not None:
+            updates.append("action = ?")
+            values.append(action)
+        if params is not None:
+            updates.append("params = ?")
+            values.append(json.dumps(params))
+        if enabled is not None:
+            updates.append("enabled = ?")
+            values.append(int(enabled))
+
+        if not updates:
+            return False
+
+        values.append(self.user_id)
+        values.append(cmd_id)
+
+        query = f"""UPDATE user_voice_commands
+                   SET {', '.join(updates)}
+                   WHERE user_id = ? AND id = ?"""
+        cursor = await self.db.execute(query, values)
+        await self.db.commit()
+        return cursor.rowcount > 0
+
+    async def get_custom_command(self, cmd_id: str) -> dict | None:
+        """Get a specific custom voice command by ID."""
+        cursor = await self.db.execute(
+            """SELECT id, triggers, action, params, enabled, created_at
+               FROM user_voice_commands
+               WHERE user_id = ? AND id = ?""",
+            (self.user_id, cmd_id)
+        )
+        row = await cursor.fetchone()
+        if row:
+            import json
+            return {
+                "id": row["id"],
+                "triggers": json.loads(row["triggers"]),
+                "action": row["action"],
+                "params": json.loads(row["params"]),
+                "enabled": bool(row["enabled"]),
+                "created_at": row["created_at"],
+            }
+        return None
 
 
 async def ensure_default_user() -> str:

@@ -228,6 +228,8 @@ class VTThoughtExtension {
             await this.exportUserData();
         }), vscode.commands.registerCommand('vtthought.deleteUserData', async () => {
             await this.deleteUserData();
+        }), vscode.commands.registerCommand('vtthought.manageCustomVoiceCommands', async () => {
+            await this.manageCustomVoiceCommands();
         }));
         this.log('Commands registered');
     }
@@ -731,6 +733,16 @@ Backend URL: ${authStatus.backendUrl}
             return;
         }
         await this.resources.userPreferencesManager.deleteUserData();
+    }
+    /**
+     * Manage custom voice commands (ADR-011)
+     */
+    async manageCustomVoiceCommands() {
+        if (!this.resources.userPreferencesManager) {
+            vscode.window.showErrorMessage('VTThought: User preferences not initialized');
+            return;
+        }
+        await this.resources.userPreferencesManager.manageCustomVoiceCommands();
     }
 }
 exports.VTThoughtExtension = VTThoughtExtension;

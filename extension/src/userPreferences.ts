@@ -34,6 +34,18 @@ export interface LearnedCorrection {
 }
 
 /**
+ * A custom voice command.
+ */
+export interface CustomVoiceCommand {
+    id: string;
+    triggers: string[];
+    action: string;
+    params: Record<string, unknown>;
+    enabled: boolean;
+    created_at: string;
+}
+
+/**
  * Punctuation preference.
  */
 export type PunctuationStyle = 'standard' | 'minimal' | 'oxford_comma' | 'em_dash';
@@ -259,6 +271,52 @@ export class UserPreferencesClient {
      */
     async deleteUserData(): Promise<void> {
         await this.request('/api/user/data', {
+            method: 'DELETE',
+        });
+    }
+
+    /**
+     * Get custom voice commands.
+     */
+    async getCustomVoiceCommands(includeDisabled = false): Promise<CustomVoiceCommand[]> {
+        return this.request<CustomVoiceCommand[]>(`/api/user/commands?include_disabled=${includeDisabled}`);
+    }
+
+    /**
+     * Get a specific custom voice command.
+     */
+    async getCustomVoiceCommand(cmdId: string): Promise<CustomVoiceCommand> {
+        return this.request<CustomVoiceCommand>(`/api/user/commands/${cmdId}`);
+    }
+
+    /**
+     * Create a custom voice command.
+     */
+    async createCustomVoiceCommand(command: Omit<CustomVoiceCommand, 'id' | 'created_at'>): Promise<CustomVoiceCommand> {
+        return this.request<CustomVoiceCommand>('/api/user/commands', {
+            method: 'POST',
+            body: JSON.stringify(command),
+        });
+    }
+
+    /**
+     * Update a custom voice command.
+     */
+    async updateCustomVoiceCommand(
+        cmdId: string,
+        command: Omit<CustomVoiceCommand, 'id' | 'created_at'>
+    ): Promise<CustomVoiceCommand> {
+        return this.request<CustomVoiceCommand>(`/api/user/commands/${cmdId}`, {
+            method: 'PUT',
+            body: JSON.stringify(command),
+        });
+    }
+
+    /**
+     * Delete a custom voice command.
+     */
+    async deleteCustomVoiceCommand(cmdId: string): Promise<void> {
+        await this.request(`/api/user/commands/${cmdId}`, {
             method: 'DELETE',
         });
     }
@@ -1034,6 +1092,293 @@ export class UserPreferencesManager {
         } catch (error) {
             this.log(`Error reporting edit: ${error}`);
             // Don't show error to user - this is background learning
+        }
+    }
+
+    /**
+     * Show custom voice commands management UI.
+     */
+    async manageCustomVoiceCommands(): Promise<void> {
+        const client = await this.getClient();
+
+        try {
+            const commands = await client.getCustomVoiceCommands(true);
+
+            if (commands.length === 0) {
+                const result = await vscode.window.showQuickPick(
+                    ['Create a custom command', 'Cancel'],
+                    {
+                        title: 'VTThought Custom Voice Commands',
+                        placeHolder: 'No custom commands yet. Create one to get started.',
+                    }
+                );
+
+                if (result === 'Create a custom command') {
+                    await this.createCustomVoiceCommand();
+                }
+                return;
+            }
+
+            // Create QuickPick items
+            const items: vscode.QuickPickItem[] = commands.map((cmd) => ({
+                label: cmd.triggers[0] || '(no triggers)',
+                description: cmd.action,
+                detail: cmd.enabled
+                    ? `Triggers: ${cmd.triggers.join(', ')}`
+                    : `$(circle-slash) Disabled • Triggers: ${cmd.triggers.join(', ')}`,
+            }));
+
+            // Add management options at the top
+            items.unshift(
+                { label: '$(plus) Create Command', description: 'Add a new custom voice command' },
+                { label: '$(refresh) Refresh', description: 'Reload commands from server' }
+            );
+
+            const selection = await vscode.window.showQuickPick(items, {
+                title: `VTThought Custom Voice Commands (${commands.length})`,
+                placeHolder: 'Select a command to manage or create a new one',
+            });
+
+            if (!selection) {
+                return;
+            }
+
+            if (selection.label === '$(plus) Create Command') {
+                await this.createCustomVoiceCommand();
+            } else if (selection.label === '$(refresh) Refresh') {
+                vscode.window.showInformationMessage('Commands refreshed');
+            } else {
+                // Find the selected command
+                const selectedCmd = commands.find(c => c.triggers[0] === selection.label);
+                if (selectedCmd) {
+                    await this.manageCustomVoiceCommand(selectedCmd);
+                }
+            }
+        } catch (error) {
+            this.log(`Error loading commands: ${error}`);
+            vscode.window.showErrorMessage(
+                `Failed to load commands: ${error instanceof Error ? error.message : String(error)}`
+            );
+        }
+    }
+
+    /**
+     * Create a new custom voice command.
+     */
+    private async createCustomVoiceCommand(): Promise<void> {
+        // Get triggers from user
+        const triggersInput = await vscode.window.showInputBox({
+            title: 'Create Custom Voice Command',
+            placeHolder: 'e.g., "save my work", "run tests", "format code"',
+            prompt: 'Enter one or more trigger phrases (separate multiple with commas)',
+            validateInput: (value) => {
+                if (!value || value.trim().length === 0) {
+                    return 'Please enter at least one trigger phrase';
+                }
+                return null;
+            },
+        });
+
+        if (!triggersInput) {
+            return;
+        }
+
+        const triggers = triggersInput
+            .split(',')
+            .map(t => t.trim())
+            .filter(t => t.length > 0);
+
+        // Get action from user
+        const action = await vscode.window.showInputBox({
+            title: 'Command Action',
+            placeHolder: 'e.g., workbench.action.files.save',
+            prompt: 'Enter the VS Code command ID to execute',
+            validateInput: (value) => {
+                if (!value || value.trim().length === 0) {
+                    return 'Please enter a command ID';
+                }
+                return null;
+            },
+        });
+
+        if (!action) {
+            return;
+        }
+
+        // Optionally add parameters
+        const addParams = await vscode.window.showQuickPick(
+            ['Yes, add parameters', 'No, skip'],
+            {
+                title: 'Add Parameters',
+                placeHolder: 'Would you like to add parameters to the command?',
+            }
+        );
+
+        let params: Record<string, unknown> = {};
+        if (addParams === 'Yes, add parameters') {
+            const paramsInput = await vscode.window.showInputBox({
+                title: 'Command Parameters',
+                placeHolder: '{"to": "up", "by": "line"}',
+                prompt: 'Enter parameters as JSON (or leave empty for no parameters)',
+            });
+
+            if (paramsInput !== undefined) {
+                try {
+                    params = paramsInput.trim().length > 0 ? JSON.parse(paramsInput) : {};
+                } catch {
+                    vscode.window.showWarningMessage('Invalid JSON, using no parameters');
+                    params = {};
+                }
+            }
+        }
+
+        try {
+            const client = await this.getClient();
+            await client.createCustomVoiceCommand({
+                triggers,
+                action: action.trim(),
+                params,
+                enabled: true,
+            });
+            this.log(`Created custom voice command: ${triggers[0]} -> ${action}`);
+            vscode.window.showInformationMessage(`Created command "${triggers[0]}"`);
+        } catch (error) {
+            this.log(`Error creating command: ${error}`);
+            vscode.window.showErrorMessage(
+                `Failed to create command: ${error instanceof Error ? error.message : String(error)}`
+            );
+        }
+    }
+
+    /**
+     * Manage a specific custom voice command.
+     */
+    private async manageCustomVoiceCommand(command: CustomVoiceCommand): Promise<void> {
+        const options: vscode.QuickPickItem[] = [
+            { label: '$(pencil) Edit Triggers', description: 'Change the trigger phrases' },
+            { label: '$(pencil) Edit Action', description: 'Change the VS Code command' },
+            { label: '$(pencil) Edit Parameters', description: 'Change the command parameters' },
+            { label: command.enabled ? '$(circle-slash) Disable' : '$(check) Enable', description: command.enabled ? 'Disable this command' : 'Enable this command' },
+            { label: '$(x) Delete', description: 'Remove this command' },
+        ];
+
+        const selection = await vscode.window.showQuickPick(options, {
+            title: command.triggers[0],
+            placeHolder: 'What would you like to do with this command?',
+        });
+
+        if (!selection) {
+            return;
+        }
+
+        try {
+            const client = await this.getClient();
+
+            if (selection.label.startsWith('$(x)')) {
+                const confirmed = await vscode.window.showWarningMessage(
+                    `Delete command "${command.triggers[0]}"?`,
+                    { modal: true },
+                    'Delete',
+                    'Cancel'
+                );
+
+                if (confirmed === 'Delete') {
+                    await client.deleteCustomVoiceCommand(command.id);
+                    this.log(`Deleted custom voice command: ${command.id}`);
+                    vscode.window.showInformationMessage(`Deleted command "${command.triggers[0]}"`);
+                }
+            } else if (selection.label.includes('Disable') || selection.label.includes('Enable')) {
+                await client.updateCustomVoiceCommand(command.id, {
+                    triggers: command.triggers,
+                    action: command.action,
+                    params: command.params,
+                    enabled: !command.enabled,
+                });
+                this.log(`${command.enabled ? 'Disabled' : 'Enabled'} custom voice command: ${command.id}`);
+                vscode.window.showInformationMessage(`${command.enabled ? 'Disabled' : 'Enabled'} command "${command.triggers[0]}"`);
+            } else if (selection.label.includes('Triggers')) {
+                const triggersInput = await vscode.window.showInputBox({
+                    title: 'Edit Triggers',
+                    placeHolder: 'e.g., "save my work", "run tests"',
+                    prompt: 'Enter trigger phrases (separate multiple with commas)',
+                    value: command.triggers.join(', '),
+                    validateInput: (value) => {
+                        if (!value || value.trim().length === 0) {
+                            return 'Please enter at least one trigger phrase';
+                        }
+                        return null;
+                    },
+                });
+
+                if (triggersInput !== undefined) {
+                    const triggers = triggersInput
+                        .split(',')
+                        .map(t => t.trim())
+                        .filter(t => t.length > 0);
+                    await client.updateCustomVoiceCommand(command.id, {
+                        triggers,
+                        action: command.action,
+                        params: command.params,
+                        enabled: command.enabled,
+                    });
+                    this.log(`Updated triggers for command: ${command.id}`);
+                    vscode.window.showInformationMessage(`Updated triggers for "${triggers[0]}"`);
+                }
+            } else if (selection.label.includes('Action')) {
+                const newAction = await vscode.window.showInputBox({
+                    title: 'Edit Action',
+                    placeHolder: 'e.g., workbench.action.files.save',
+                    prompt: 'Enter the VS Code command ID',
+                    value: command.action,
+                    validateInput: (value) => {
+                        if (!value || value.trim().length === 0) {
+                            return 'Please enter a command ID';
+                        }
+                        return null;
+                    },
+                });
+
+                if (newAction !== undefined) {
+                    await client.updateCustomVoiceCommand(command.id, {
+                        triggers: command.triggers,
+                        action: newAction.trim(),
+                        params: command.params,
+                        enabled: command.enabled,
+                    });
+                    this.log(`Updated action for command: ${command.id}`);
+                    vscode.window.showInformationMessage(`Updated action to "${newAction}"`);
+                }
+            } else if (selection.label.includes('Parameters')) {
+                const paramsInput = await vscode.window.showInputBox({
+                    title: 'Edit Parameters',
+                    placeHolder: '{"to": "up", "by": "line"}',
+                    prompt: 'Enter parameters as JSON (empty for no parameters)',
+                    value: Object.keys(command.params).length > 0 ? JSON.stringify(command.params) : '',
+                });
+
+                if (paramsInput !== undefined) {
+                    let params: Record<string, unknown> = {};
+                    try {
+                        params = paramsInput.trim().length > 0 ? JSON.parse(paramsInput) : {};
+                    } catch {
+                        vscode.window.showWarningMessage('Invalid JSON, parameters not changed');
+                        return;
+                    }
+                    await client.updateCustomVoiceCommand(command.id, {
+                        triggers: command.triggers,
+                        action: command.action,
+                        params,
+                        enabled: command.enabled,
+                    });
+                    this.log(`Updated parameters for command: ${command.id}`);
+                    vscode.window.showInformationMessage(`Updated parameters`);
+                }
+            }
+        } catch (error) {
+            this.log(`Error managing command: ${error}`);
+            vscode.window.showErrorMessage(
+                `Failed to manage command: ${error instanceof Error ? error.message : String(error)}`
+            );
         }
     }
 

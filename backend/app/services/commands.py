@@ -330,7 +330,7 @@ class CommandParser:
         return normalized
 
 
-def parse_voice_commands(transcription: str) -> tuple[str, list[dict]]:
+def parse_voice_commands(transcription: str, custom_commands: list[dict] | None = None) -> tuple[str, list[dict]]:
     """
     Parse voice commands from transcription.
 
@@ -338,11 +338,28 @@ def parse_voice_commands(transcription: str) -> tuple[str, list[dict]]:
 
     Args:
         transcription: Raw transcription text
+        custom_commands: Optional list of custom voice commands from database
 
     Returns:
         Tuple of (cleaned_text, commands_list)
     """
-    parser = CommandParser()
+    # Build command list with custom commands
+    commands = list(VOICE_COMMANDS)
+
+    if custom_commands:
+        import json
+        for custom in custom_commands:
+            if custom.get("enabled", True):
+                commands.append(
+                    VoiceCommandDef(
+                        triggers=custom["triggers"],
+                        action=custom["action"],
+                        params=json.dumps(custom.get("params", {})),
+                        terminal=False,
+                    )
+                )
+
+    parser = CommandParser(commands)
     result = parser.parse(transcription)
 
     commands_list = []

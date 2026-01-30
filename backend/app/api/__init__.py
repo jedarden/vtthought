@@ -203,11 +203,21 @@ async def websocket_audio_stream(
         style_learner = await get_style_learner(user_id)
         style_prompt = await style_learner.get_style_prompt()
 
+        # Fetch custom voice commands (ADR-011)
+        from app.database import UserRepository, get_pooled_connection, return_connection
+        db_conn = await get_pooled_connection()
+        try:
+            user_repo = UserRepository(db_conn, user_id)
+            custom_commands = await user_repo.get_custom_commands()
+        finally:
+            await return_connection(db_conn)
+
         # Cache in session for reuse
         session.user_context = {
             "vocabulary": vocab_list,
             "corrections": corrections_dict,
             "style_prompt": style_prompt,
+            "custom_commands": custom_commands,
         }
 
         # Performance: Set user vocabulary on streaming STT for personalization (ADR-011)
@@ -374,8 +384,9 @@ async def handle_text_message(
 
                 cleaned_text = "".join(cleaned_tokens).strip()
 
-                # Parse voice commands (ADR-008)
-                text_with_commands, commands = parse_voice_commands(cleaned_text)
+                # Parse voice commands (ADR-008) with custom commands (ADR-011)
+                custom_commands = user_context.get("custom_commands", [])
+                text_with_commands, commands = parse_voice_commands(cleaned_text, custom_commands)
 
                 # Send final result
                 await websocket.send_json(

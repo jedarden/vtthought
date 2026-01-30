@@ -6,6 +6,7 @@
  */
 
 import * as vscode from 'vscode';
+import { CustomVoiceCommand } from './userPreferences';
 
 /**
  * Voice command definition.
@@ -222,6 +223,7 @@ const VOICE_COMMANDS: VoiceCommand[] = [
 export class CommandParser {
     private commands: VoiceCommand[];
     private detectionMode: 'trailing' | 'anywhere';
+    private customCommands: CustomVoiceCommand[] = [];
 
     constructor(commands?: VoiceCommand[], detectionMode: 'trailing' | 'anywhere' = 'trailing') {
         this.commands = commands ?? VOICE_COMMANDS;
@@ -231,7 +233,7 @@ export class CommandParser {
     /**
      * Create a parser with custom commands from VS Code settings
      */
-    static withSettings(): CommandParser {
+    static withSettings(customVoiceCommands?: CustomVoiceCommand[]): CommandParser {
         const config = vscode.workspace.getConfiguration('vtthought');
 
         // Get disabled commands
@@ -255,9 +257,69 @@ export class CommandParser {
             }
         }
 
+        // Add custom voice commands from backend (ADR-011)
+        if (customVoiceCommands) {
+            for (const custom of customVoiceCommands.filter(c => c.enabled)) {
+                commands.push({
+                    trigger: custom.triggers,
+                    action: custom.action,
+                    params: custom.params && Object.keys(custom.params).length > 0
+                        ? () => custom.params!
+                        : undefined,
+                    terminal: false
+                });
+            }
+        }
+
         const detectionMode = config.get<'trailing' | 'anywhere'>('commandDetection', 'trailing');
 
-        return new CommandParser(commands, detectionMode);
+        const parser = new CommandParser(commands, detectionMode);
+        parser.customCommands = customVoiceCommands ?? [];
+        return parser;
+    }
+
+    /**
+     * Update custom commands after initial construction
+     */
+    updateCustomCommands(customVoiceCommands: CustomVoiceCommand[]): void {
+        this.customCommands = customVoiceCommands;
+
+        const config = vscode.workspace.getConfiguration('vtthought');
+
+        // Get disabled commands
+        const disabledActions = new Set(
+            config.get<string[]>('disabledCommands', [])
+        );
+
+        // Start with built-in commands
+        let commands = VOICE_COMMANDS.filter(cmd => !disabledActions.has(cmd.action));
+
+        // Add custom commands from settings
+        const customCommands = config.get<any[]>('customCommands', []);
+        for (const custom of customCommands) {
+            if (custom.trigger && custom.action) {
+                commands.push({
+                    trigger: custom.trigger,
+                    action: custom.action,
+                    params: custom.params ? () => custom.params : undefined,
+                    terminal: custom.terminal || false
+                });
+            }
+        }
+
+        // Add custom voice commands from backend
+        for (const custom of customVoiceCommands.filter(c => c.enabled)) {
+            commands.push({
+                trigger: custom.triggers,
+                action: custom.action,
+                params: custom.params && Object.keys(custom.params).length > 0
+                    ? () => custom.params!
+                    : undefined,
+                terminal: false
+            });
+        }
+
+        this.commands = commands;
     }
 
     parse(transcription: string): ParsedTranscription {

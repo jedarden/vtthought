@@ -325,3 +325,129 @@ async def batch_learn_corrections(
         )
 
     return {"status": "learned", "count": len(corrections)}
+
+
+# Custom Voice Commands endpoints
+class VoiceCommandRequest(BaseModel):
+    """Request to create/update a voice command."""
+    triggers: list[str]
+    action: str
+    params: dict | None = None
+    enabled: bool = True
+
+
+class VoiceCommandResponse(BaseModel):
+    """Voice command response."""
+    id: str
+    triggers: list[str]
+    action: str
+    params: dict
+    enabled: bool
+    created_at: str
+
+
+class VoiceCommandListResponse(BaseModel):
+    """List of voice commands."""
+    commands: list[dict]
+
+
+@router.get("/commands", response_model=VoiceCommandListResponse)
+async def get_voice_commands(
+    include_disabled: bool = Query(False, description="Include disabled commands"),
+    user_id: str = Depends(get_user_id)
+) -> VoiceCommandListResponse:
+    """Get user's custom voice commands."""
+    async with await get_db() as db:
+        repo = UserRepository(db, user_id)
+        commands = await repo.get_custom_commands(include_disabled=include_disabled)
+
+    return VoiceCommandListResponse(commands=commands)
+
+
+@router.get("/commands/{cmd_id}", response_model=VoiceCommandResponse)
+async def get_voice_command(
+    cmd_id: str,
+    user_id: str = Depends(get_user_id)
+) -> VoiceCommandResponse:
+    """Get a specific custom voice command."""
+    async with await get_db() as db:
+        repo = UserRepository(db, user_id)
+        command = await repo.get_custom_command(cmd_id)
+
+    if not command:
+        raise HTTPException(status_code=404, detail=f"Command '{cmd_id}' not found")
+
+    return VoiceCommandResponse(**command)
+
+
+@router.post("/commands", response_model=VoiceCommandResponse)
+async def create_voice_command(
+    request: VoiceCommandRequest,
+    user_id: str = Depends(get_user_id)
+) -> VoiceCommandResponse:
+    """Create a new custom voice command."""
+    async with await get_db() as db:
+        repo = UserRepository(db, user_id)
+        cmd_id = await repo.add_custom_command(
+            triggers=request.triggers,
+            action=request.action,
+            params=request.params,
+            enabled=request.enabled
+        )
+        command = await repo.get_custom_command(cmd_id)
+
+    if not command:
+        raise HTTPException(status_code=500, detail="Failed to create command")
+
+    return VoiceCommandResponse(**command)
+
+
+@router.put("/commands/{cmd_id}", response_model=VoiceCommandResponse)
+async def update_voice_command(
+    cmd_id: str,
+    request: VoiceCommandRequest,
+    user_id: str = Depends(get_user_id)
+) -> VoiceCommandResponse:
+    """Update a custom voice command."""
+    async with await get_db() as db:
+        repo = UserRepository(db, user_id)
+
+        # First verify the command exists
+        existing = await repo.get_custom_command(cmd_id)
+        if not existing:
+            raise HTTPException(status_code=404, detail=f"Command '{cmd_id}' not found")
+
+        # Update the command
+        updated = await repo.update_custom_command(
+            cmd_id=cmd_id,
+            triggers=request.triggers,
+            action=request.action,
+            params=request.params,
+            enabled=request.enabled
+        )
+
+        if not updated:
+            raise HTTPException(status_code=500, detail="Failed to update command")
+
+        command = await repo.get_custom_command(cmd_id)
+
+    if not command:
+        raise HTTPException(status_code=500, detail="Failed to retrieve updated command")
+
+    return VoiceCommandResponse(**command)
+
+
+@router.delete("/commands/{cmd_id}")
+async def delete_voice_command(
+    cmd_id: str,
+    user_id: str = Depends(get_user_id)
+) -> dict:
+    """Delete a custom voice command."""
+    async with await get_db() as db:
+        repo = UserRepository(db, user_id)
+        deleted = await repo.delete_custom_command(cmd_id)
+
+    if not deleted:
+        raise HTTPException(status_code=404, detail=f"Command '{cmd_id}' not found")
+
+    return {"status": "deleted", "id": cmd_id}

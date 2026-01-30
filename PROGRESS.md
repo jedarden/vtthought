@@ -92,9 +92,10 @@ Voice-to-code VS Code extension with Docker backend for speech-to-text transcrip
    - [x] Extension can view and edit preferences
 
 2. **Custom Voice Commands UI** (Priority: MEDIUM)
-   - [ ] Add UI to create/manage custom voice commands
-   - [ ] Backend table exists (`user_voice_commands`)
-   - [ ] Extension UI needed
+   - [x] Add UI to create/manage custom voice commands
+   - [x] Backend API endpoints (`/api/user/commands` GET/POST/PUT/DELETE)
+   - [x] Extension UI for managing commands
+   - [x] Integration with command parser
 
 3. **Manual Style Preferences Editor** (Priority: LOW)
    - [ ] Allow manual override of learned style preferences
@@ -123,6 +124,7 @@ Voice-to-code VS Code extension with Docker backend for speech-to-text transcrip
 | 16 | Jan 30 | Extension UI for vocabulary/style management | Complete |
 | 17 | Jan 30 | Performance tuning - streaming pipeline optimization | Complete |
 | 18 | Jan 30 | User preferences editor UI | Complete |
+| 19 | Jan 30 | Custom voice commands UI and backend integration | Complete |
 
 ## Statistics
 
