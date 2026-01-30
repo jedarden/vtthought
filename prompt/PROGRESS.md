@@ -137,6 +137,10 @@
   - [x] Setup reset/re-configuration command
   - [x] Extension integration with auto-detect on first run
   - [x] All new commands added to package.json
+- [x] Bug Fixes (Session 12)
+  - [x] Fixed undefined 'user' variable in WebSocket handle_text_message
+  - [x] Added user parameter to handle_text_message function signature
+  - [x] Fixed pytest async configuration with @pytest.mark.asyncio decorators
 
 ### In Progress
 - [ ] Testing with real audio input (requires Whisper model download ~150MB)
@@ -313,6 +317,19 @@
 - Updated package.json with new commands
 - DictationHandler updated to trigger first transcription celebration
 - All code compiles successfully (TypeScript)
+
+### Session 12 - Bug Fixes and Test Configuration
+- Fixed undefined 'user' variable bug in WebSocket handler (backend/app/api/__init__.py)
+  - The 'user' variable was used in handle_text_message but not defined in that scope
+  - Fixed by adding 'user' as a parameter to handle_text_message
+  - Updated function call to pass user from websocket_audio_stream
+  - Improved code clarity by extracting user_id to a separate variable
+- Fixed pytest async configuration for integration tests
+  - Added @pytest.mark.asyncio decorators to test functions
+  - Tests now properly configured for pytest-asyncio
+- All code compiles successfully (Python and TypeScript)
+
+---
 
 ---
 
