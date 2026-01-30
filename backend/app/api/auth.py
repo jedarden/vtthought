@@ -2,7 +2,7 @@
 VTThought Authentication API Endpoints (ADR-002)
 
 Implements authentication and token management endpoints.
-Supports multiple auth methods: OAuth (GitHub), username/password, and single-user mode.
+Supports multiple auth methods: OAuth (Google), username/password, and single-user mode.
 """
 import logging
 from dataclasses import dataclass, field
@@ -39,7 +39,7 @@ security = HTTPBearer()
 
 # Single-user mode flag
 _settings = get_settings()
-SINGLE_USER_MODE = _settings.environment == "development" and not _settings.github_client_id
+SINGLE_USER_MODE = _settings.environment == "development" and not _settings.google_client_id
 
 
 # Pydantic models for requests/responses
@@ -365,5 +365,5 @@ async def get_auth_mode() -> dict:
     return {
         "mode": "single_user" if SINGLE_USER_MODE else "multi_user",
         "single_user_mode": SINGLE_USER_MODE,
-        "oauth_configured": bool(settings.github_client_id),
+        "oauth_configured": bool(settings.google_client_id),
     }

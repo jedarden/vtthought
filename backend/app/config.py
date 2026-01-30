@@ -68,7 +68,11 @@ class Settings(BaseSettings):
     jwt_algorithm: str = "HS256"
     jwt_access_token_expire_minutes: int = 60 * 24 * 7  # 1 week
 
-    # OAuth (ADR-002) - GitHub OAuth
+    # OAuth (ADR-002) - Google OAuth
+    google_client_id: str = ""
+    google_client_secret: str = ""
+
+    # OAuth (ADR-002) - GitHub OAuth (legacy, kept for backwards compatibility)
     github_client_id: str = ""
     github_client_secret: str = ""
 

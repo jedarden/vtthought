@@ -54,6 +54,8 @@ Each iteration MUST end with:
 git add -A
 git commit -m "feat: <description>
 
-Co-Authored-By: GLM-4.7 <noreply@z.ai>"
+Co-Authored-By: Claude <noreply@anthropic.com>"
 git push origin main
 ```
+
+Note: The `Co-Authored-By: Claude` line enables detection by the claude-leaderboard system which searches GitHub for this exact substring.

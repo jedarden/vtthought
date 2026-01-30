@@ -35,10 +35,14 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 # Include auth routes
-router.include_router(auth_api.auth_router, tags=["authentication"])
+router.include_router(auth_api.auth_router, prefix="/auth", tags=["authentication"])
+
+# Include OAuth routes (ADR-002)
+from app.api import oauth as oauth_api
+router.include_router(oauth_api.oauth_router, prefix="/auth", tags=["oauth"])
 
 # Include user personalization routes (ADR-011)
-router.include_router(user_api.router, tags=["user"])
+router.include_router(user_api.router, prefix="/user", tags=["user"])
 
 # Store active WebSocket connections
 active_connections: list[WebSocket] = []
@@ -109,8 +113,8 @@ async def websocket_audio_stream(
     """
     settings = get_settings()
 
-    # Determine if single-user mode (development without GitHub OAuth configured)
-    single_user_mode = settings.environment == "development" and not settings.github_client_id
+    # Determine if single-user mode (development without Google OAuth configured)
+    single_user_mode = settings.environment == "development" and not settings.google_client_id
 
     # Authenticate connection
     user = None

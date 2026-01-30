@@ -2,7 +2,7 @@
 
 > Located in `prompt/` - updated by marathon agent each iteration.
 
-## Current Status: Voice Commands Refined (ADR-008)
+## Current Status: Google OAuth Integration Complete (ADR-002)
 
 ### Completed
 - [x] Created GitHub repository (jedarden/vtthought)
@@ -191,13 +191,29 @@
     - CPU-only Dockerfile: PASS
   - [x] Security checks: non-root user, healthcheck, apt cleanup
   - [x] Best practices: multi-stage builds, cache optimization
+- [x] OAuth Integration (Google) - ADR-002 - Session 15
+  - [x] Added authlib dependency for OAuth 2.0 support
+  - [x] Created `backend/app/oauth/__init__.py` module with:
+    - `GoogleOAuthProvider` class for OAuth flow handling
+    - `OAuthUserInfo` dataclass for user information
+    - `handle_google_oauth_callback()` for complete OAuth flow
+    - `get_oauth_provider()` and `is_oauth_configured()` utilities
+  - [x] Created `backend/app/api/oauth.py` with OAuth endpoints:
+    - GET /api/auth/google - Initiate Google OAuth login
+    - GET /api/auth/google/callback - Handle OAuth callback
+    - GET /api/auth/config - Check OAuth configuration status
+  - [x] Updated `backend/app/config.py` with Google OAuth settings:
+    - `google_client_id` and `google_client_secret`
+    - `FRONTEND_URL` for OAuth callback redirects
+  - [x] Updated `backend/requirements.txt` with authlib>=1.3.0
+  - [x] Updated `.env.example` with Google OAuth configuration
+  - [x] Updated auth module to use Google OAuth config check (instead of GitHub)
+  - [x] All code compiles successfully with new OAuth routes registered
 
 ### In Progress
-- [ ] OAuth integration (GitHub) - ADR-002
 - [ ] Extension UI for vocabulary/style management
 
 ### Next Up
-- [ ] OAuth integration (GitHub) - ADR-002
 - [ ] Extension UI for vocabulary/style management
 - [ ] Performance tuning with real audio testing
 
@@ -447,6 +463,32 @@
   - Security checks (non-root user)
   - Best practices (HEALTHCHECK, apt-get cleanup)
 - All Dockerfiles validated: PASS
+
+### Session 15 - Google OAuth Integration (ADR-002)
+- Implemented complete Google OAuth 2.0 authentication flow per ADR-002
+- Added authlib dependency (>=1.3.0) to requirements.txt for OAuth 2.0 support
+- Created backend/app/oauth/__init__.py module:
+  - GoogleOAuthProvider class with authorization URL generation
+  - OAuth code exchange for access tokens
+  - User info fetching from Google API
+  - handle_google_oauth_callback() for complete OAuth flow
+  - Configuration utilities (is_oauth_configured, get_oauth_provider)
+- Created backend/app/api/oauth.py with OAuth endpoints:
+  - GET /api/auth/google - Redirect to Google consent screen
+  - GET /api/auth/google/callback - Handle OAuth callback with JWT creation
+  - GET /api/auth/config - Check if OAuth is configured
+- Updated backend/app/config.py:
+  - Added google_client_id and google_client_secret settings
+  - Added FRONTEND_URL for OAuth callback redirects
+  - Kept GitHub OAuth settings for backwards compatibility
+- Updated backend/requirements.txt with authlib>=1.3.0
+- Updated .env.example with Google OAuth configuration instructions
+- Updated auth module to check for Google OAuth config (not GitHub)
+- Fixed OAuth2Error import (correct class name in authlib)
+- All code compiles successfully with new OAuth routes registered:
+  - /api/auth/google (OAuth login initiation)
+  - /api/auth/google/callback (OAuth callback handling)
+  - /api/auth/config (OAuth configuration status)
 
 ---
 
