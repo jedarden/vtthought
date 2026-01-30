@@ -6,6 +6,7 @@
  */
 
 import * as vscode from 'vscode';
+import { SetupFlow } from './setupFlow';
 
 /**
  * Server message types from backend WebSocket.
@@ -278,9 +279,18 @@ export class DictationHandler {
     private readonly terminalInserter = new TerminalInserter();
 
     private currentFocus: 'editor' | 'terminal' | 'other' = 'other';
+    private context?: vscode.ExtensionContext;
 
-    constructor() {
+    constructor(context?: vscode.ExtensionContext) {
+        this.context = context;
         this.trackFocus();
+    }
+
+    /**
+     * Set the extension context for first transcription celebration
+     */
+    public setContext(context: vscode.ExtensionContext): void {
+        this.context = context;
     }
 
     /**
@@ -340,6 +350,12 @@ export class DictationHandler {
 
             case 'final':
                 await this.editorManager.finalize(editor);
+
+                // First transcription celebration (ADR-017)
+                if (this.context && msg.cleaned && msg.cleaned.length > 0) {
+                    await SetupFlow.onFirstTranscription(this.context, msg.cleaned);
+                }
+
                 // Execute voice commands after finalization
                 for (const cmd of msg.commands) {
                     await this.executeVoiceCommand(cmd);

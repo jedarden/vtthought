@@ -43,6 +43,14 @@
       {
         "command": "vtthought.showAuthenticationStatus",
         "title": "VTThought: Show Authentication Status"
+      },
+      {
+        "command": "vtthought.runSetup",
+        "title": "VTThought: Run Setup"
+      },
+      {
+        "command": "vtthought.resetSetup",
+        "title": "VTThought: Reset Setup"
       }
     ],
     "keybindings": [

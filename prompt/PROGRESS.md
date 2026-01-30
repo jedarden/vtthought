@@ -125,6 +125,18 @@
   - [x] Data export and deletion endpoints (GDPR compliance)
   - [x] WebSocket integration with user-specific vocabulary
   - [x] In-memory vocabulary caching with TTL
+- [x] First-Run Setup (ADR-017) - Session 11
+  - [x] SetupFlow state machine with welcome screen
+  - [x] Backend URL configuration with validation
+  - [x] Token acquisition flow with "Open Backend" option
+  - [x] Single-user mode detection (no token required)
+  - [x] Microphone permission request flow
+  - [x] Connection testing with optional skip
+  - [x] Completion celebration with "Try It Now" option
+  - [x] First transcription celebration message
+  - [x] Setup reset/re-configuration command
+  - [x] Extension integration with auto-detect on first run
+  - [x] All new commands added to package.json
 
 ### In Progress
 - [ ] Testing with real audio input (requires Whisper model download ~150MB)
@@ -132,10 +144,10 @@
 - [ ] Docker build verification (requires Docker daemon)
 
 ### Next Up
-- [ ] First-run setup (ADR-017)
 - [ ] Voice command refinement and testing
-- [ ] OAuth integration (GitHub)
+- [ ] OAuth integration (GitHub) - ADR-002
 - [ ] Extension UI for vocabulary/style management
+- [ ] Performance tuning with real audio testing
 
 ---
 
@@ -280,6 +292,27 @@
 - Database initialization on application startup with default user
 - Added aiosqlite and cachetools dependencies
 - All code compiles successfully (Python and TypeScript)
+
+### Session 11 - First-Run Setup Implementation (ADR-017)
+- Implemented complete first-run setup flow per ADR-017
+- Created `SetupFlow` class with state machine (welcome → backend_url → token → microphone → testing → complete)
+- Welcome screen with Quick Pick (Get Started / Learn More)
+- Backend URL configuration with input validation and normalization
+- Token acquisition flow with "Open Backend" option (opens browser to get token)
+- Single-user mode detection (skips token requirement)
+- Microphone permission request with explanation dialog
+- Connection testing with optional skip
+- Completion celebration with "Try It Now" and "Done" options
+- First transcription celebration (shows "It works!" with preview)
+- Setup reset command for re-configuration
+- Extension integration:
+  - Auto-detects first run on activation
+  - Shows welcome screen after 1-second delay
+  - Auto-connects to backend after setup complete
+  - New commands: vtthought.runSetup, vtthought.resetSetup
+- Updated package.json with new commands
+- DictationHandler updated to trigger first transcription celebration
+- All code compiles successfully (TypeScript)
 
 ---
 

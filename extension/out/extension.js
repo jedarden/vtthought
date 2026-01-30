@@ -41,6 +41,7 @@ const voiceInputViewProvider_1 = require("./voiceInputViewProvider");
 const audioStreamer_1 = require("./audioStreamer");
 const textInsertion_1 = require("./textInsertion");
 const tokenManager_1 = require("./tokenManager");
+const setupFlow_1 = require("./setupFlow");
 /**
  * VTThought Extension Main Class
  */
@@ -83,8 +84,8 @@ class VTThoughtExtension {
             this.updateStatusDisplay();
         });
         this.updateStatusDisplay();
-        // Create dictation handler
-        this.dictationHandler = new textInsertion_1.DictationHandler();
+        // Create dictation handler with context for first-run celebration
+        this.dictationHandler = new textInsertion_1.DictationHandler(context);
         this.context.subscriptions.push({
             dispose: () => this.dictationHandler?.dispose()
         });
@@ -94,12 +95,33 @@ class VTThoughtExtension {
      */
     async activate() {
         this.log('VTThought Extension Activated');
-        // Check authentication status (ADR-002)
-        const authStatus = await (0, tokenManager_1.getAuthStatus)(this.tokenManager);
-        this.state.isAuthenticated = authStatus.isConfigured;
-        this.state.backendUrl = authStatus.backendUrl;
-        if (!authStatus.isConfigured) {
-            this.log('Authentication not configured. Run "VTThought: Setup Authentication" to configure.');
+        // Check for first-run setup (ADR-017)
+        const setupFlow = new setupFlow_1.SetupFlow(this.context, this.tokenManager);
+        const isFirstRun = await setupFlow.isFirstRun();
+        if (isFirstRun) {
+            this.log('First run detected - starting setup flow...');
+            // Show welcome after a short delay to let VS Code fully load
+            setTimeout(() => {
+                setupFlow.start().catch(err => {
+                    this.log(`Setup flow failed: ${err}`);
+                });
+            }, 1000);
+        }
+        else {
+            // Check authentication status (ADR-002)
+            const authStatus = await (0, tokenManager_1.getAuthStatus)(this.tokenManager);
+            this.state.isAuthenticated = authStatus.isConfigured;
+            this.state.backendUrl = authStatus.backendUrl;
+            if (!authStatus.isConfigured) {
+                this.log('Authentication not configured. Run "VTThought: Setup Authentication" to configure.');
+            }
+            // Auto-connect if enabled and authenticated
+            const config = vscode.workspace.getConfiguration('vtthought');
+            if (authStatus.isConfigured && config.get('autoConnect', true)) {
+                this.connectBackend().catch(err => {
+                    this.log(`Auto-connect failed: ${err}`);
+                });
+            }
         }
         // Register WebView provider
         this.context.subscriptions.push(vscode.window.registerWebviewViewProvider(voiceInputViewProvider_1.VoiceInputViewProvider.viewType, this.voiceInputViewProvider));
@@ -108,13 +130,6 @@ class VTThoughtExtension {
         // Show status bar items
         this.statusBarItem.show();
         this.connectionStatusBarItem.show();
-        // Auto-connect if enabled and authenticated
-        const config = vscode.workspace.getConfiguration('vtthought');
-        if (authStatus.isConfigured && config.get('autoConnect', true)) {
-            this.connectBackend().catch(err => {
-                this.log(`Auto-connect failed: ${err}`);
-            });
-        }
         // Watch for configuration changes
         vscode.workspace.onDidChangeConfiguration(e => {
             if (e.affectsConfiguration('vtthought')) {
@@ -157,6 +172,12 @@ class VTThoughtExtension {
             await this.clearAuthentication();
         }), vscode.commands.registerCommand('vtthought.showAuthenticationStatus', async () => {
             await this.showAuthenticationStatus();
+        }), 
+        // First-run setup commands (ADR-017)
+        vscode.commands.registerCommand('vtthought.runSetup', async () => {
+            await this.runSetup();
+        }), vscode.commands.registerCommand('vtthought.resetSetup', async () => {
+            await this.resetSetup();
         }));
         this.log('Commands registered');
     }
@@ -315,6 +336,29 @@ Backend URL: ${authStatus.backendUrl}
 `.trim();
         this.log(message);
         vscode.window.showInformationMessage(message);
+    }
+    /**
+     * Run the first-run setup flow (ADR-017)
+     */
+    async runSetup() {
+        this.log('Starting setup flow...');
+        const setupFlow = new setupFlow_1.SetupFlow(this.context, this.tokenManager);
+        await setupFlow.start();
+    }
+    /**
+     * Reset the first-run setup (ADR-017)
+     */
+    async resetSetup() {
+        const result = await vscode.window.showWarningMessage('This will reset VTThought to first-run state. You will need to set up authentication again.', { modal: true }, 'Reset', 'Cancel');
+        if (result === 'Reset') {
+            await setupFlow_1.SetupFlow.reset(this.context);
+            await this.tokenManager.clearAll();
+            this.state.isAuthenticated = false;
+            this.disconnect();
+            this.log('Setup reset');
+            vscode.window.showInformationMessage('VTThought has been reset. Click the status bar or run "VTThought: Run Setup" to start again.');
+            this.updateStatusDisplay();
+        }
     }
     /**
      * Connect to backend WebSocket
