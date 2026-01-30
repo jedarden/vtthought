@@ -2,7 +2,7 @@
 
 > Located in `prompt/` - updated by marathon agent each iteration.
 
-## Current Status: Audio Capture Implementation Complete
+## Current Status: Core Pipeline Implementation Complete
 
 ### Completed
 - [x] Created GitHub repository (jedarden/vtthought)
@@ -39,16 +39,43 @@
   - [x] Float32 to PCM16 conversion
   - [x] Binary WebSocket frame transmission
   - [x] Extension-to-backend audio streaming integration
+- [x] STT Integration (ADR-005)
+  - [x] `WhisperSTT` service with faster-whisper
+  - [x] GPU/CPU auto-detection with compute type selection
+  - [x] Technical vocabulary for code transcription
+  - [x] `StreamingWhisperSTT` with interim results
+  - [x] Diff-based text change detection
+- [x] LLM Post-Processing (ADR-006)
+  - [x] `OllamaProvider` for local LLM
+  - [x] `OpenAIProvider` and `AnthropicProvider` abstractions
+  - [x] `TranscriptionCleaner` with streaming support
+  - [x] Cleanup prompts for code transcription
+  - [x] Session context support
+- [x] Text Insertion (ADR-007)
+  - [x] `InterimTextManager` for atomic text replacement
+  - [x] Gray/italic styling for interim text
+  - [x] Undo grouping for dictation sessions
+  - [x] `TerminalInserter` for terminal output
+  - [x] `DictationHandler` for routing to editor/terminal
+- [x] Voice Commands (ADR-008)
+  - [x] `CommandParser` with keyword detection
+  - [x] Execution commands (enter, cancel)
+  - [x] Editing commands (undo, clear line, select all)
+  - [x] Navigation commands (go to line)
+  - [x] VS Code commands (save, close, terminal)
+  - [x] `CommandExecutor` for command execution
 
 ### In Progress
-- [ ] Full extension testing in VS Code
-- [ ] Backend testing and verification
+- [ ] Integration testing with Ollama running
+- [ ] Testing with real audio input
+- [ ] Performance tuning
 
 ### Next Up
-- [ ] STT integration with faster-whisper (ADR-005)
-- [ ] LLM post-processing integration (ADR-006)
-- [ ] Text insertion into VS Code editor (ADR-007)
-- [ ] Voice commands detection (ADR-008)
+- [ ] Authentication implementation (ADR-002)
+- [ ] Voice command refinement and testing
+- [ ] User personalization (ADR-011)
+- [ ] Error handling and circuit breaker (ADR-015)
+- [ ] First-run setup (ADR-017)
 
 ---
 
@@ -84,6 +111,25 @@
   - Backend starts and serves health endpoint
   - Docker container configuration complete
   - WebSocket endpoint stub functional
+
+### Session 5 - Core Pipeline Implementation
+- Implemented faster-whisper STT service (ADR-005)
+  - GPU/CPU auto-detection
+  - Streaming transcription with interim results
+  - Technical vocabulary for code transcription
+- Implemented LLM post-processing (ADR-006)
+  - Ollama provider for local LLM
+  - OpenAI/Anthropic provider abstractions
+  - Streaming cleanup with customizable prompts
+- Implemented text insertion (ADR-007)
+  - InterimTextManager for atomic text replacement
+  - TerminalInserter for terminal output
+  - DictationHandler for routing
+- Implemented voice commands (ADR-008)
+  - CommandParser with keyword detection
+  - Execution, editing, navigation, VS Code commands
+- Updated WebSocket endpoint with full streaming pipeline
+- All code compiles and passes linting
 
 ---
 
