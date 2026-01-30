@@ -4,13 +4,23 @@
  * Per ADR-004: Audio Streaming Protocol
  *
  * Extended to handle interim/streaming/final messages (ADR-006, ADR-007)
+ * Extended with error handling and circuit breaker (ADR-015)
  */
 
 import type { ServerMessage } from './textInsertion';
+import {
+    calculateBackoff,
+    CircuitBreaker,
+    ConnectionError,
+    ConnectionState,
+    getCircuitBreaker,
+    type ReconnectConfig,
+} from './errorHandling';
 
 export interface AudioStreamerOptions {
     readonly sampleRate: number;
     readonly channels: number;
+    readonly reconnectConfig?: Partial<ReconnectConfig>;
 }
 
 export interface AudioStreamerEvents {
@@ -18,12 +28,14 @@ export interface AudioStreamerEvents {
     onDisconnected?: () => void;
     onError?: (error: Error) => void;
     onMessage?: (message: ServerMessage) => void;
+    onReconnecting?: (attempt: number) => void;
 }
 
 /**
  * Audio Streamer Class
  * Converts Float32Array audio samples to PCM16 and streams via WebSocket
  * Handles server messages for interim, streaming, and final results
+ * Implements circuit breaker and automatic reconnection
  */
 export class AudioStreamer {
     private ws: WebSocket | null = null;
@@ -32,48 +44,128 @@ export class AudioStreamer {
     private events: AudioStreamerEvents;
     private isStreaming: boolean = false;
 
+    // Connection state and reconnection tracking
+    private connectionState: ConnectionState = {
+        status: 'disconnected',
+        lastError: null,
+        reconnectAttempts: 0,
+    };
+
+    private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+    private circuitBreaker: CircuitBreaker;
+
     constructor(url: string, options: AudioStreamerOptions, events: AudioStreamerEvents = {}) {
         this.url = url;
         this.options = options;
         this.events = events;
+
+        // Initialize circuit breaker for WebSocket connections
+        this.circuitBreaker = getCircuitBreaker('websocket', {
+            failureThreshold: 5,
+            resetTimeout: 30000,
+            successThreshold: 2,
+        });
     }
 
     /**
-     * Connect to the WebSocket server
+     * Connect to the WebSocket server with circuit breaker protection.
      */
     public connect(): Promise<void> {
-        return new Promise((resolve, reject) => {
-            try {
-                this.ws = new WebSocket(this.url);
-                this.isStreaming = false;
-
-                this.ws.onopen = () => {
-                    this.isStreaming = true;
-                    this.events.onConnected?.();
-                    resolve();
-                };
-
-                this.ws.onerror = (event) => {
-                    const error = new Error('WebSocket connection error');
-                    this.events.onError?.(error);
-                    reject(error);
-                };
-
-                this.ws.onclose = () => {
+        return this.circuitBreaker.execute(async () => {
+            return new Promise((resolve, reject) => {
+                try {
+                    this.connectionState.status = 'connecting';
+                    this.ws = new WebSocket(this.url);
                     this.isStreaming = false;
-                    this.events.onDisconnected?.();
-                };
 
-                this.ws.onmessage = (event) => {
-                    this.handleMessage(event);
-                };
+                    this.ws.onopen = () => {
+                        this.connectionState.status = 'connected';
+                        this.connectionState.reconnectAttempts = 0;
+                        this.connectionState.lastError = null;
+                        this.isStreaming = true;
 
-            } catch (error) {
-                const err = error instanceof Error ? error : new Error('Failed to create WebSocket');
-                this.events.onError?.(err);
-                reject(err);
-            }
+                        this.circuitBreaker.onSuccess();
+                        this.events.onConnected?.();
+                        resolve();
+                    };
+
+                    this.ws.onerror = (event) => {
+                        const error = new ConnectionError('WebSocket connection error');
+                        this.circuitBreaker.onFailure();
+                        this.events.onError?.(error);
+                        reject(error);
+                    };
+
+                    this.ws.onclose = (event) => {
+                        this.isStreaming = false;
+                        this.connectionState.status = 'disconnected';
+
+                        // Attempt reconnection on abnormal close
+                        if (event.code !== 1000) {
+                            this.handleDisconnect(new ConnectionError(
+                                `WebSocket closed: ${event.reason || 'Unknown reason'}`
+                            ));
+                        }
+
+                        this.events.onDisconnected?.();
+                    };
+
+                    this.ws.onmessage = (event) => {
+                        this.handleMessage(event);
+                    };
+
+                } catch (error) {
+                    const err = error instanceof Error ? error : new Error('Failed to create WebSocket');
+                    this.circuitBreaker.onFailure();
+                    this.events.onError?.(err);
+                    reject(err);
+                }
+            });
         });
+    }
+
+    /**
+     * Handle disconnection with reconnection logic.
+     */
+    private handleDisconnect(error: Error): void {
+        this.connectionState.lastError = error;
+
+        // Clear any existing reconnect timer
+        if (this.reconnectTimer) {
+            clearTimeout(this.reconnectTimer);
+            this.reconnectTimer = null;
+        }
+
+        // Check circuit breaker and reconnection limits
+        if (!this.circuitBreaker.canExecute()) {
+            this.events.onError?.(new Error('Service temporarily unavailable (circuit open)'));
+            return;
+        }
+
+        const reconnectConfig = {
+            maxReconnectAttempts: 5,
+            baseDelay: 1000,
+            maxDelay: 30000,
+            ...this.options.reconnectConfig,
+        };
+
+        if (this.connectionState.reconnectAttempts >= reconnectConfig.maxReconnectAttempts) {
+            this.events.onError?.(new Error('Max reconnection attempts reached'));
+            return;
+        }
+
+        // Schedule reconnection with exponential backoff
+        const delay = calculateBackoff(this.connectionState.reconnectAttempts, reconnectConfig);
+        this.connectionState.status = 'reconnecting';
+        this.connectionState.reconnectAttempts++;
+
+        this.events.onReconnecting?.(this.connectionState.reconnectAttempts);
+
+        this.reconnectTimer = setTimeout(() => {
+            this.connect().catch(err => {
+                // Will trigger handleDisconnect again if it fails
+            });
+        }, delay);
     }
 
     /**
@@ -149,14 +241,23 @@ export class AudioStreamer {
     }
 
     /**
-     * Close the connection
+     * Close the connection and stop reconnection attempts.
      */
     public close(): void {
+        // Clear reconnect timer
+        if (this.reconnectTimer) {
+            clearTimeout(this.reconnectTimer);
+            this.reconnectTimer = null;
+        }
+
+        // Close WebSocket
         if (this.ws) {
-            this.ws.close();
+            this.ws.close(1000, 'Client closing');
             this.ws = null;
         }
+
         this.isStreaming = false;
+        this.connectionState.status = 'disconnected';
     }
 
     /**

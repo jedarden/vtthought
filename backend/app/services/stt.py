@@ -17,6 +17,16 @@ import numpy as np
 if TYPE_CHECKING:
     from faster_whisper import WhisperModel
 
+from app.errors import (
+    BackendError,
+    CircuitBreaker,
+    RetryConfig,
+    TimeoutError,
+    ValidationError,
+    get_circuit_breaker,
+    retry_with_backoff,
+)
+
 logger = logging.getLogger(__name__)
 
 
@@ -132,8 +142,17 @@ class WhisperSTT:
 
         except ImportError as e:
             logger.error(f"faster-whisper not installed: {e}")
-            raise RuntimeError(
-                "faster-whisper is required. Install with: pip install faster-whisper"
+            raise BackendError(
+                message="faster-whisper is required. Install with: pip install faster-whisper",
+                code="MISSING_DEPENDENCY",
+                original_error=str(e),
+            ) from e
+        except Exception as e:
+            logger.error(f"Failed to load Whisper model: {e}")
+            raise BackendError(
+                message=f"Failed to load Whisper model: {e}",
+                code="MODEL_LOAD_FAILED",
+                retryable=True,
             ) from e
 
     def transcribe(
@@ -153,24 +172,47 @@ class WhisperSTT:
         Returns:
             Transcribed text string
         """
-        segments, info = self.model.transcribe(
-            audio,
-            beam_size=5,
-            best_of=5,
-            language=language,
-            initial_prompt=CODING_PROMPT,
-            condition_on_previous_text=True,
-            vad_filter=True,
-            vad_parameters={
-                "threshold": 0.5,
-                "min_speech_duration_ms": 250,
-                "min_silence_duration_ms": 500,
-            },
-        )
+        # Validate audio shape
+        if audio.size == 0:
+            raise ValidationError(
+                message="Audio array is empty",
+                code="EMPTY_AUDIO",
+            )
 
-        text = " ".join(segment.text.strip() for segment in segments)
-        logger.debug(f"Transcription: {text}")
-        return text
+        if sample_rate != 16000:
+            raise ValidationError(
+                message=f"Unsupported sample rate: {sample_rate}. Expected 16000 Hz.",
+                code="INVALID_SAMPLE_RATE",
+                sample_rate=sample_rate,
+            )
+
+        try:
+            segments, info = self.model.transcribe(
+                audio,
+                beam_size=5,
+                best_of=5,
+                language=language,
+                initial_prompt=CODING_PROMPT,
+                condition_on_previous_text=True,
+                vad_filter=True,
+                vad_parameters={
+                    "threshold": 0.5,
+                    "min_speech_duration_ms": 250,
+                    "min_silence_duration_ms": 500,
+                },
+            )
+
+            text = " ".join(segment.text.strip() for segment in segments)
+            logger.debug(f"Transcription: {text}")
+            return text
+
+        except Exception as e:
+            logger.error(f"Transcription failed: {e}")
+            raise BackendError(
+                message=f"Transcription failed: {e}",
+                code="TRANSCRIPTION_FAILED",
+                retryable=True,
+            ) from e
 
     def transcribe_final(
         self,

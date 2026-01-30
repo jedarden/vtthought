@@ -20,6 +20,17 @@ import httpx
 if TYPE_CHECKING:
     from app.models.transcription import CleanupContext, VoiceCommand
 
+from app.errors import (
+    BackendError,
+    CircuitBreaker,
+    ConnectionError as VTConnectionError,
+    RateLimitError,
+    RetryConfig,
+    TimeoutError as VTTimeoutError,
+    get_circuit_breaker,
+    retry_with_backoff,
+)
+
 logger = logging.getLogger(__name__)
 
 
@@ -87,6 +98,11 @@ class OllamaProvider(BaseLLMProvider):
         self.base_url = base_url.rstrip("/")
         self.model = model
         self._client: Optional[httpx.AsyncClient] = None
+        self._circuit_breaker = get_circuit_breaker(
+            name="ollama",
+            failure_threshold=3,
+            reset_timeout=60.0,
+        )
 
     @property
     def client(self) -> httpx.AsyncClient:
@@ -102,47 +118,101 @@ class OllamaProvider(BaseLLMProvider):
             self._client = None
 
     async def complete(self, prompt: str) -> str:
-        """Get completion from Ollama."""
-        response = await self.client.post(
-            f"{self.base_url}/api/generate",
-            json={
-                "model": self.model,
-                "prompt": prompt,
-                "stream": False,
-                "options": {
-                    "temperature": 0.1,
-                    "num_predict": 200,
-                }
-            },
+        """Get completion from Ollama with error handling."""
+        async def _do_complete() -> str:
+            try:
+                response = await self.client.post(
+                    f"{self.base_url}/api/generate",
+                    json={
+                        "model": self.model,
+                        "prompt": prompt,
+                        "stream": False,
+                        "options": {
+                            "temperature": 0.1,
+                            "num_predict": 200,
+                        }
+                    },
+                )
+                response.raise_for_status()
+                data = response.json()
+                return data.get("response", "").strip()
+            except httpx.ConnectError as e:
+                raise VTConnectionError(
+                    message=f"Cannot connect to Ollama at {self.base_url}",
+                    code="OLLAMA_CONNECTION_ERROR",
+                    retryable=True,
+                ) from e
+            except httpx.TimeoutException as e:
+                raise VTTimeoutError(
+                    message=f"Ollama request timed out",
+                    code="OLLAMA_TIMEOUT",
+                ) from e
+            except httpx.HTTPStatusError as e:
+                if e.response.status_code == 429:
+                    raise RateLimitError(
+                        message="Ollama is rate limited",
+                        retry_after=30.0,
+                    ) from e
+                raise BackendError(
+                    message=f"Ollama returned error: {e.response.status_code}",
+                    code="OLLAMA_HTTP_ERROR",
+                    retryable=e.response.status_code >= 500,
+                ) from e
+
+        return await retry_with_backoff(
+            _do_complete,
+            config=RetryConfig(max_attempts=3, base_delay=1.0),
         )
-        response.raise_for_status()
-        data = response.json()
-        return data.get("response", "").strip()
 
     async def stream(self, prompt: str) -> AsyncIterator[str]:
-        """Stream completion from Ollama."""
-        async with self.client.stream(
-            "POST",
-            f"{self.base_url}/api/generate",
-            json={
-                "model": self.model,
-                "prompt": prompt,
-                "stream": True,
-                "options": {
-                    "temperature": 0.1,
-                    "num_predict": 200,
-                }
-            },
-        ) as response:
-            response.raise_for_status()
-            async for line in response.aiter_lines():
-                if line:
-                    try:
-                        data = json.loads(line)
-                        if "response" in data:
-                            yield data["response"]
-                    except json.JSONDecodeError:
-                        continue
+        """Stream completion from Ollama with error handling."""
+        try:
+            async with self.client.stream(
+                "POST",
+                f"{self.base_url}/api/generate",
+                json={
+                    "model": self.model,
+                    "prompt": prompt,
+                    "stream": True,
+                    "options": {
+                        "temperature": 0.1,
+                        "num_predict": 200,
+                    }
+                },
+            ) as response:
+                response.raise_for_status()
+                async for line in response.aiter_lines():
+                    if line:
+                        try:
+                            data = json.loads(line)
+                            if "response" in data:
+                                yield data["response"]
+                        except json.JSONDecodeError:
+                            continue
+        except httpx.ConnectError as e:
+            logger.error(f"Ollama connection error during streaming: {e}")
+            raise VTConnectionError(
+                message=f"Cannot connect to Ollama at {self.base_url}",
+                code="OLLAMA_CONNECTION_ERROR",
+                retryable=True,
+            ) from e
+        except httpx.TimeoutException as e:
+            logger.error(f"Ollama timeout during streaming: {e}")
+            raise VTTimeoutError(
+                message=f"Ollama request timed out",
+                code="OLLAMA_TIMEOUT",
+            ) from e
+        except httpx.HTTPStatusError as e:
+            logger.error(f"Ollama HTTP error during streaming: {e}")
+            if e.response.status_code == 429:
+                raise RateLimitError(
+                    message="Ollama is rate limited",
+                    retry_after=30.0,
+                ) from e
+            raise BackendError(
+                message=f"Ollama returned error: {e.response.status_code}",
+                code="OLLAMA_HTTP_ERROR",
+            ) from e
 
 
 class OpenAIProvider(BaseLLMProvider):
