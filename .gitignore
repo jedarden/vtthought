@@ -34,3 +34,6 @@ build/
 .coverage
 htmlcov/
 .vscode-test/
+
+# Marathon coding logs
+.marathon/
