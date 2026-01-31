@@ -2,7 +2,7 @@
 
 > Located in `prompt/` - updated by marathon agent each iteration.
 
-## Current Status: Maintenance Mode (Session 125)
+## Current Status: Maintenance Mode (Session 126)
 
 All 16 ADRs implemented, project awaiting user feedback.
 
@@ -269,6 +269,23 @@ All 16 ADRs implemented, project awaiting user feedback.
 
 ### Next Up
 - [ ] User testing and feedback collection
+
+### Completed This Session (Session 126)
+- [x] Documentation update - Added testing guide
+  - Added docs/TESTING.md with comprehensive testing instructions
+  - Backend testing guide (pytest, integration tests, real audio tests)
+  - Extension testing guide (voice command tests, manual testing)
+  - CI/CD testing documentation
+  - Docker testing instructions
+  - Test templates and best practices
+  - Updated README.md documentation table to include TESTING.md
+- [x] CI/CD enhancement - Added automated test workflow
+  - Added .github/workflows/test.yml for automated testing
+  - Backend lint (ruff) and type checking (mypy)
+  - Backend unit tests (pytest with integration tests)
+  - Extension lint and build verification
+  - Docker build validation (GPU and CPU variants)
+  - Tests run on every push to main and pull requests
 
 ### Completed This Session (Session 22)
 - [x] Project verification and maintenance mode
@@ -1395,6 +1412,26 @@ All 16 ADRs implemented, project awaiting user feedback.
 - Confirmed git branch is up to date with origin/main (latest commit: 4daad1f)
 - No TODO/FIXME markers remain in source code (extension/src, backend/app)
 - All documentation files present (INSTALL.md, USER_GUIDE.md, TROUBLESHOOTING.md, BETA_TESTING.md)
+- No new development tasks pending
+- Project awaits user testing and feedback collection
+
+---
+
+### Session 126 - Documentation and CI/CD Enhancement
+- Added docs/TESTING.md with comprehensive testing guide (~390 lines)
+- Backend testing: pytest configuration, integration tests, real audio tests
+- Extension testing: voice command tests, manual testing procedures
+- CI/CD testing documentation with GitHub Actions examples
+- Docker testing instructions for container validation
+- Test templates and best practices for writing new tests
+- Updated README.md documentation table to include TESTING.md
+- Added .github/workflows/test.yml for automated CI/CD testing:
+  - Backend lint (ruff) and type checking (mypy)
+  - Backend unit tests (pytest with integration tests)
+  - Extension lint and build verification
+  - Docker build validation (GPU and CPU variants)
+  - Tests run on every push to main and pull requests
+- All code compiles successfully (TypeScript and Python)
 - No new development tasks pending
 - Project awaits user testing and feedback collection
 

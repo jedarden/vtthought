@@ -103,6 +103,7 @@ npm run compile
 | [INSTALL.md](./docs/INSTALL.md) | Installation guide for all platforms |
 | [USER_GUIDE.md](./docs/USER_GUIDE.md) | How to use VTThought effectively |
 | [TROUBLESHOOTING.md](./docs/TROUBLESHOOTING.md) | Common issues and solutions |
+| [TESTING.md](./docs/TESTING.md) | Testing guide for backend and extension |
 | [BETA_TESTING.md](./docs/BETA_TESTING.md) | Beta testing program and feedback |
 | [ADRs](./ADRs/) | Architecture Decision Records |
 

@@ -1,0 +1,141 @@
+name: Test
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'backend/**'
+      - 'extension/**'
+      - '.github/workflows/test.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'backend/**'
+      - 'extension/**'
+
+jobs:
+  backend-lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: |
+          cd backend
+          pip install ruff mypy
+
+      - name: Lint with ruff
+        run: |
+          cd backend
+          ruff check app/
+
+      - name: Type check with mypy
+        run: |
+          cd backend
+          pip install -r requirements.txt
+          mypy app/ --ignore-missing-imports
+
+  backend-test:
+    runs-on: ubuntu-latest
+    needs: backend-lint
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: |
+          cd backend
+          pip install -r requirements.txt
+          pip install pytest pytest-asyncio pytest-cov httpx websockets
+
+      - name: Run unit tests
+        run: |
+          cd backend
+          pytest test_integration.py -v --tb=short
+        env:
+          SINGLE_USER_MODE: 'true'
+          ENVIRONMENT: 'test'
+
+  extension-lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: extension/package-lock.json
+
+      - name: Install dependencies
+        working-directory: extension
+        run: npm ci
+
+      - name: Lint
+        working-directory: extension
+        run: npm run lint
+
+  extension-build:
+    runs-on: ubuntu-latest
+    needs: extension-lint
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: extension/package-lock.json
+
+      - name: Install dependencies
+        working-directory: extension
+        run: npm ci
+
+      - name: Compile TypeScript
+        working-directory: extension
+        run: npm run compile
+
+      - name: Run tests
+        working-directory: extension
+        run: npm test
+        continue-on-error: true  # Extension tests may require VS Code
+
+  docker-build:
+    runs-on: ubuntu-latest
+    needs: [backend-test, extension-build]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build GPU image (no push)
+        uses: docker/build-push-action@v5
+        with:
+          context: ./backend
+          file: ./backend/Dockerfile
+          push: false
+          tags: vtthought:test-gpu
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build CPU image (no push)
+        uses: docker/build-push-action@v5
+        with:
+          context: ./backend
+          file: ./backend/Dockerfile.cpu
+          push: false
+          tags: vtthought:test-cpu
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
