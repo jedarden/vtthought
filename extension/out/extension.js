@@ -220,6 +220,8 @@ class VTThoughtExtension {
             await this.manageVocabulary();
         }), vscode.commands.registerCommand('vtthought.showStylePreferences', async () => {
             await this.showStylePreferences();
+        }), vscode.commands.registerCommand('vtthought.editStylePreferences', async () => {
+            await this.editStylePreferences();
         }), vscode.commands.registerCommand('vtthought.showLearnedCorrections', async () => {
             await this.showLearnedCorrections();
         }), vscode.commands.registerCommand('vtthought.manageUserPreferences', async () => {
@@ -687,6 +689,16 @@ Backend URL: ${authStatus.backendUrl}
             return;
         }
         await this.resources.userPreferencesManager.showStylePreferences();
+    }
+    /**
+     * Edit style preferences manually (ADR-011)
+     */
+    async editStylePreferences() {
+        if (!this.resources.userPreferencesManager) {
+            vscode.window.showErrorMessage('VTThought: User preferences not initialized');
+            return;
+        }
+        await this.resources.userPreferencesManager.editStylePreferences();
     }
     /**
      * Show learned corrections (ADR-011)

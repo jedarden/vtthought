@@ -73,6 +73,10 @@
         "title": "VTThought: Show Style Preferences"
       },
       {
+        "command": "vtthought.editStylePreferences",
+        "title": "VTThought: Edit Style Preferences"
+      },
+      {
         "command": "vtthought.showLearnedCorrections",
         "title": "VTThought: Show Learned Corrections"
       },

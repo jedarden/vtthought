@@ -73,6 +73,20 @@ export interface StylePreferences {
 }
 
 /**
+ * A raw style preference entry from the backend.
+ */
+export interface StylePreferenceEntry {
+    id?: string;
+    category: string;
+    preference: string;
+    pattern?: string;
+    replacement?: string;
+    occurrences: number;
+    created_at?: string;
+    updated_at?: string;
+}
+
+/**
  * User preferences summary.
  */
 export interface UserPreferences {
@@ -213,10 +227,40 @@ export class UserPreferencesClient {
     }
 
     /**
-     * Get style preferences.
+     * Get style preferences summary.
      */
     async getStylePreferences(): Promise<StylePreferences> {
         return this.request<StylePreferences>('/api/user/style');
+    }
+
+    /**
+     * Get all style preferences (raw data).
+     */
+    async getStylePreferencesList(): Promise<StylePreferenceEntry[]> {
+        return this.request<StylePreferenceEntry[]>('/api/user/style/preferences');
+    }
+
+    /**
+     * Create a style preference manually.
+     */
+    async createStylePreference(preference: Omit<StylePreferenceEntry, 'id' | 'created_at' | 'updated_at'>): Promise<void> {
+        await this.request('/api/user/style/preferences', {
+            method: 'POST',
+            body: JSON.stringify(preference),
+        });
+    }
+
+    /**
+     * Delete a style preference.
+     */
+    async deleteStylePreference(category: string, preference: string, pattern?: string): Promise<void> {
+        const params = new URLSearchParams({ category, preference });
+        if (pattern !== undefined) {
+            params.append('pattern', pattern);
+        }
+        await this.request(`/api/user/style/preferences?${params.toString()}`, {
+            method: 'DELETE',
+        });
     }
 
     /**
@@ -691,6 +735,294 @@ export class UserPreferencesManager {
                 `Failed to load style preferences: ${error instanceof Error ? error.message : String(error)}`
             );
         }
+    }
+
+    /**
+     * Edit style preferences manually.
+     */
+    async editStylePreferences(): Promise<void> {
+        const client = await this.getClient();
+
+        try {
+            const stylePrefs = await client.getStylePreferencesList();
+
+            if (stylePrefs.length === 0) {
+                const result = await vscode.window.showQuickPick(
+                    ['Add a style preference', 'Cancel'],
+                    {
+                        title: 'VTThought Style Preferences Editor',
+                        placeHolder: 'No style preferences yet. Add one to get started.',
+                    }
+                );
+
+                if (result === 'Add a style preference') {
+                    await this.addStylePreference();
+                }
+                return;
+            }
+
+            // Group by category for better display
+            const grouped = this.groupStylePreferences(stylePrefs);
+
+            const items: vscode.QuickPickItem[] = [];
+
+            for (const [category, prefs] of Object.entries(grouped)) {
+                for (const pref of prefs) {
+                    items.push({
+                        label: `${this.getStyleCategoryIcon(category as any)} ${pref.preference}`,
+                        description: pref.replacement ?? pref.pattern ?? '—',
+                        detail: `Category: ${category} • Used ${pref.occurrences} time(s)`,
+                    });
+                }
+            }
+
+            // Add management options at the top
+            items.unshift(
+                { label: '$(plus) Add Style Preference', description: 'Add a new manual style preference' },
+                { label: '$(refresh) Refresh', description: 'Reload preferences from server' }
+            );
+
+            const selection = await vscode.window.showQuickPick(items, {
+                title: `VTThought Style Preferences (${stylePrefs.length} entries)`,
+                placeHolder: 'Select a preference to manage or add a new one',
+            });
+
+            if (!selection) {
+                return;
+            }
+
+            if (selection.label === '$(plus) Add Style Preference') {
+                await this.addStylePreference();
+            } else if (selection.label === '$(refresh) Refresh') {
+                vscode.window.showInformationMessage('Style preferences refreshed');
+            } else {
+                // Find the selected preference
+                const selectedPref = this.findStylePreference(stylePrefs, selection.label);
+                if (selectedPref) {
+                    await this.manageStylePreference(selectedPref);
+                }
+            }
+        } catch (error) {
+            this.log(`Error loading style preferences: ${error}`);
+            vscode.window.showErrorMessage(
+                `Failed to load style preferences: ${error instanceof Error ? error.message : String(error)}`
+            );
+        }
+    }
+
+    /**
+     * Group style preferences by category.
+     */
+    private groupStylePreferences(prefs: StylePreferenceEntry[]): Record<string, StylePreferenceEntry[]> {
+        const grouped: Record<string, StylePreferenceEntry[]> = {};
+        for (const pref of prefs) {
+            if (!grouped[pref.category]) {
+                grouped[pref.category] = [];
+            }
+            grouped[pref.category].push(pref);
+        }
+        return grouped;
+    }
+
+    /**
+     * Find a style preference by label.
+     */
+    private findStylePreference(prefs: StylePreferenceEntry[], label: string): StylePreferenceEntry | undefined {
+        // Remove icon prefix from label
+        const cleanLabel = label.replace(/^.*\s/, '');
+        return prefs.find(p => p.preference === cleanLabel);
+    }
+
+    /**
+     * Add a new style preference.
+     */
+    private async addStylePreference(): Promise<void> {
+        // Category selection
+        const categoryItems: vscode.QuickPickItem[] = [
+            { label: 'punctuation', description: 'Punctuation style (oxford comma, em dash, etc.)' },
+            { label: 'capitalization', description: 'Word capitalization (JavaScript vs javascript)' },
+            { label: 'number_format', description: 'Number format (digits vs words)' },
+            { label: 'abbreviation', description: 'Abbreviation style (don\'t vs do not)' },
+        ];
+
+        const categorySelection = await vscode.window.showQuickPick(categoryItems, {
+            title: 'Select Category',
+            placeHolder: 'Choose the style category',
+        });
+
+        if (!categorySelection) {
+            return;
+        }
+
+        const category = categorySelection.label;
+
+        // Preference selection based on category
+        let preference: string = '';
+        let pattern: string | undefined;
+        let replacement: string | undefined;
+
+        if (category === 'punctuation') {
+            const prefItems = [
+                { label: 'oxford_comma', description: 'Use comma before "and" in lists' },
+                { label: 'em_dash', description: 'Use em dashes (—) instead of spaced dashes (-)' },
+            ];
+
+            const prefSelection = await vscode.window.showQuickPick(prefItems, {
+                title: 'Select Punctuation Preference',
+                placeHolder: 'Choose the punctuation style',
+            });
+
+            if (!prefSelection) {
+                return;
+            }
+
+            preference = prefSelection.label;
+            replacement = 'True';  // Enable the preference
+
+        } else if (category === 'capitalization') {
+            const word = await vscode.window.showInputBox({
+                title: 'Word to Capitalize',
+                placeHolder: 'e.g., JavaScript, Kubernetes, PostgreSQL',
+                prompt: 'Enter the word that should be capitalized this way',
+                validateInput: (value) => {
+                    if (!value || value.trim().length === 0) {
+                        return 'Please enter a word';
+                    }
+                    return null;
+                },
+            });
+
+            if (!word) {
+                return;
+            }
+
+            preference = 'word_case';
+            pattern = word.toLowerCase();
+            replacement = word;
+
+        } else if (category === 'number_format') {
+            const prefItems = [
+                { label: 'use_digits', description: 'Use digits for numbers (5 not five)' },
+                { label: 'spell_out', description: 'Spell out numbers (five not 5)' },
+            ];
+
+            const prefSelection = await vscode.window.showQuickPick(prefItems, {
+                title: 'Select Number Format',
+                placeHolder: 'Choose number format preference',
+            });
+
+            if (!prefSelection) {
+                return;
+            }
+
+            preference = prefSelection.label;
+
+        } else if (category === 'abbreviation') {
+            const prefItems = [
+                { label: 'expand_contractions', description: 'Use full forms (do not instead of don\'t)' },
+                { label: 'use_contractions', description: 'Use contractions (don\'t instead of do not)' },
+            ];
+
+            const prefSelection = await vscode.window.showQuickPick(prefItems, {
+                title: 'Select Abbreviation Style',
+                placeHolder: 'Choose abbreviation preference',
+            });
+
+            if (!prefSelection) {
+                return;
+            }
+
+            preference = prefSelection.label;
+        }
+
+        // Verify preference was set
+        if (!preference) {
+            return;
+        }
+
+        try {
+            const client = await this.getClient();
+            await client.createStylePreference({
+                category,
+                preference,
+                pattern,
+                replacement,
+                occurrences: 10,  // High confidence for manual entries
+            });
+            this.log(`Added style preference: ${category}/${preference}`);
+            vscode.window.showInformationMessage(`Added style preference: ${preference}`);
+        } catch (error) {
+            this.log(`Error adding style preference: ${error}`);
+            vscode.window.showErrorMessage(
+                `Failed to add style preference: ${error instanceof Error ? error.message : String(error)}`
+            );
+        }
+    }
+
+    /**
+     * Manage a specific style preference.
+     */
+    private async manageStylePreference(pref: StylePreferenceEntry): Promise<void> {
+        const options: vscode.QuickPickItem[] = [
+            { label: '$(info) View Details', description: 'See full preference details' },
+            { label: '$(x) Delete', description: 'Remove this style preference' },
+        ];
+
+        const selection = await vscode.window.showQuickPick(options, {
+            title: pref.preference,
+            placeHolder: 'What would you like to do with this preference?',
+        });
+
+        if (!selection) {
+            return;
+        }
+
+        if (selection.label.startsWith('$(info)')) {
+            const details = [
+                `Category: ${pref.category}`,
+                `Preference: ${pref.preference}`,
+                pref.pattern ? `Pattern: ${pref.pattern}` : null,
+                pref.replacement ? `Replacement: ${pref.replacement}` : null,
+                `Occurrences: ${pref.occurrences}`,
+            ].filter(Boolean).join('\n');
+
+            await vscode.window.showInformationMessage(details, { modal: true }, 'OK');
+
+        } else if (selection.label.startsWith('$(x)')) {
+            const confirmed = await vscode.window.showWarningMessage(
+                `Delete style preference "${pref.preference}"?`,
+                { modal: true },
+                'Delete',
+                'Cancel'
+            );
+
+            if (confirmed === 'Delete') {
+                try {
+                    const client = await this.getClient();
+                    await client.deleteStylePreference(pref.category, pref.preference, pref.pattern);
+                    this.log(`Deleted style preference: ${pref.category}/${pref.preference}`);
+                    vscode.window.showInformationMessage(`Deleted style preference: ${pref.preference}`);
+                } catch (error) {
+                    this.log(`Error deleting style preference: ${error}`);
+                    vscode.window.showErrorMessage(
+                        `Failed to delete style preference: ${error instanceof Error ? error.message : String(error)}`
+                    );
+                }
+            }
+        }
+    }
+
+    /**
+     * Get icon for style preference category.
+     */
+    private getStyleCategoryIcon(category: string): string {
+        const icons: Record<string, string> = {
+            punctuation: '$(punctuation)',
+            capitalization: '$(case-sensitive)',
+            number_format: '$(symbol-number)',
+            abbreviation: '$(symbol-keyword)',
+        };
+        return icons[category] || '$(tag)';
     }
 
     /**

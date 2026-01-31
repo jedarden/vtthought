@@ -280,6 +280,9 @@ export class VTThoughtExtension {
             vscode.commands.registerCommand('vtthought.showStylePreferences', async () => {
                 await this.showStylePreferences();
             }),
+            vscode.commands.registerCommand('vtthought.editStylePreferences', async () => {
+                await this.editStylePreferences();
+            }),
             vscode.commands.registerCommand('vtthought.showLearnedCorrections', async () => {
                 await this.showLearnedCorrections();
             }),
@@ -846,6 +849,17 @@ Backend URL: ${authStatus.backendUrl}
             return;
         }
         await this.resources.userPreferencesManager.showStylePreferences();
+    }
+
+    /**
+     * Edit style preferences manually (ADR-011)
+     */
+    private async editStylePreferences(): Promise<void> {
+        if (!this.resources.userPreferencesManager) {
+            vscode.window.showErrorMessage('VTThought: User preferences not initialized');
+            return;
+        }
+        await this.resources.userPreferencesManager.editStylePreferences();
     }
 
     /**

@@ -86,6 +86,13 @@ Voice-to-code VS Code extension with Docker backend for speech-to-text transcrip
 
 ### Next Up - ADR-011 Remaining UI Tasks
 
+1. **Manual Style Preferences Editor** (Priority: MEDIUM)
+   - [x] Backend API endpoints for manual style preference management
+   - [x] Extension UI for manual style preference editing
+   - [x] Integration with command parser
+
+### Future Enhancements (Priority: TBD)
+
 1. **User Preferences Editor** (Priority: HIGH)
    - [x] Add UI to edit user preferences (language, cleanup_level, hotkey_mode)
    - [x] Backend API exists (`/api/user/preferences` PUT)
@@ -101,7 +108,7 @@ Voice-to-code VS Code extension with Docker backend for speech-to-text transcrip
 
 These items may be addressed based on user feedback during beta testing:
 
-1. **Manual Style Preferences Editor** - Allow manual override of learned style preferences
+1. **Manual Style Preferences Editor** - Allow manual override of learned style preferences ~~[IMPLEMENTED]~~
 2. **Integration Tests** - Tests for vocabulary/corrections/style learning
 3. **Additional STT Engines** - Support for Deepgram as fallback (ADR-005)
 4. **Voice Command UI** - Visual command feedback and help overlay

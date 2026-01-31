@@ -244,6 +244,84 @@ async def get_style_prompt(
     return {"style_prompt": prompt}
 
 
+class StylePreferencesListResponse(BaseModel):
+    """List of style preferences."""
+    style_preferences: list[dict]
+
+
+class StylePreferenceRequest(BaseModel):
+    """Request to create/update a style preference."""
+    category: str
+    preference: str
+    pattern: Optional[str] = None
+    replacement: Optional[str] = None
+    occurrences: int = 10  # Default to high confidence for manual entries
+
+
+@router.get("/style/preferences", response_model=StylePreferencesListResponse)
+async def get_style_preferences_list(
+    user_id: str = Depends(get_user_id)
+) -> StylePreferencesListResponse:
+    """Get all user style preferences (manual management)."""
+    async with await get_db() as db:
+        repo = UserRepository(db, user_id)
+        style_prefs = await repo.get_style_preferences()
+
+    return StylePreferencesListResponse(style_preferences=style_prefs)
+
+
+@router.post("/style/preferences")
+async def create_style_preference(
+    request: StylePreferenceRequest,
+    user_id: str = Depends(get_user_id)
+) -> dict:
+    """Manually create a style preference."""
+    async with await get_db() as db:
+        repo = UserRepository(db, user_id)
+        await repo.record_style_change(
+            request.category,
+            request.preference,
+            request.pattern,
+            request.replacement
+        )
+
+    # Invalidate cache to ensure new preference is used
+    style_learner = StyleLearner(user_id)
+    await style_learner.invalidate_cache()
+
+    return {"status": "created", "category": request.category, "preference": request.preference}
+
+
+@router.delete("/style/preferences")
+async def delete_style_preference(
+    category: str,
+    preference: str,
+    pattern: Optional[str] = None,
+    user_id: str = Depends(get_user_id)
+) -> dict:
+    """Delete a style preference."""
+    async with await get_db() as db:
+        if pattern:
+            await db.execute(
+                """DELETE FROM user_style_preferences
+                   WHERE user_id = ? AND category = ? AND preference = ? AND pattern = ?""",
+                (user_id, category, preference, pattern)
+            )
+        else:
+            await db.execute(
+                """DELETE FROM user_style_preferences
+                   WHERE user_id = ? AND category = ? AND preference = ? AND pattern IS NULL""",
+                (user_id, category, preference)
+            )
+        await db.commit()
+
+    # Invalidate cache after deletion
+    style_learner = StyleLearner(user_id)
+    await style_learner.invalidate_cache()
+
+    return {"status": "deleted"}
+
+
 # Data export and deletion (GDPR)
 @router.get("/export", response_model=ExportDataResponse)
 async def export_user_data(
