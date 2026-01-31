@@ -4,6 +4,7 @@
   "description": "Voice-to-code VS Code extension with push-to-talk transcription and LLM post-processing",
   "version": "0.2.0",
   "publisher": "vtthought",
+  "icon": "icon.png",
   "engines": {
     "vscode": "^1.108.0"
   },
@@ -171,13 +172,16 @@
                 "default": false
               }
             },
-            "required": ["trigger", "action"]
+            "required": [
+              "trigger",
+              "action"
+            ]
           }
         },
         "vtthought.disabledCommands": {
           "type": "array",
           "default": [],
-                   "description": "Voice command actions to disable (e.g., 'workbench.action.files.save' to disable 'save file' command)",
+          "description": "Voice command actions to disable (e.g., 'workbench.action.files.save' to disable 'save file' command)",
           "items": {
             "type": "string"
           }
@@ -185,7 +189,10 @@
         "vtthought.commandDetection": {
           "type": "string",
           "default": "trailing",
-          "enum": ["trailing", "anywhere"],
+          "enum": [
+            "trailing",
+            "anywhere"
+          ],
           "description": "How voice commands are detected - 'trailing' only at end of text, 'anywhere' in the text"
         },
         "vtthought.showCommandFeedback": {
@@ -220,6 +227,7 @@
     "@typescript-eslint/eslint-plugin": "^7.18.0",
     "@typescript-eslint/parser": "^7.18.0",
     "@vscode/test-electron": "^2.5.2",
+    "canvas": "^3.2.1",
     "eslint": "^8.57.1",
     "typescript": "^5.9.3"
   }
