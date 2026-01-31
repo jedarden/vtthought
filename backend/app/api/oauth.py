@@ -83,7 +83,7 @@ async def google_login(request: Request) -> RedirectResponse:
         raise HTTPException(status_code=500, detail=str(e)) from e
 
 
-@oauth_router.get("/google/callback")
+@oauth_router.get("/google/callback", response_model=None)
 async def google_callback(
     request: Request,
     code: str = Query(..., description="Authorization code from Google"),

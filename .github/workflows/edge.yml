@@ -69,6 +69,7 @@ jobs:
       - name: Install test dependencies
         run: |
           cd backend
+          pip install -r requirements.txt
           pip install pytest pytest-asyncio httpx websockets
 
       - name: Run integration tests

@@ -8,10 +8,11 @@
 1. Read `./PROGRESS.md` to understand current state
 2. Pick the next uncompleted task from "In Progress" or "Next Up"
 3. Complete that ONE task fully
-4. Update `./PROGRESS.md` with what was done
-5. Commit with conventional commit message
-6. **Push to GitHub**: `git push origin main`
-7. **Verify CI**: Wait for GitHub Actions and confirm they passed
+4. **Run quick validation**: `./scripts/validate-quick.sh`
+5. Update `./PROGRESS.md` with what was done
+6. Commit with conventional commit message
+7. **Push to GitHub**: `git push origin main`
+8. **Verify CI**: Wait for GitHub Actions and confirm they passed
 
 Do NOT attempt multiple tasks in a single iteration. Depth over breadth.
 
@@ -27,7 +28,7 @@ Build **VTThought** - a voice-to-code VS Code extension with a companion Docker 
 
 Review the ADRs in `./ADRs/` for complete architectural decisions:
 - ADR-001: System Architecture (VS Code Extension + Docker Backend)
-- ADR-002: Authentication (OAuth 2.0 with GitHub, JWT)
+- ADR-002: Authentication (OAuth 2.0 with Google, JWT)
 - ADR-003: Audio Capture (WebView with Web Audio API)
 - ADR-004: Audio Streaming (WebSocket with binary frames)
 - ADR-005: STT Engine (faster-whisper GPU + Deepgram fallback)
@@ -44,6 +45,7 @@ Review the ADRs in `./ADRs/` for complete architectural decisions:
 - ADR-019: Observability (health endpoints, metrics)
 - ADR-024: Versioning (API compatibility)
 - ADR-025: Container Registry and Release Process (ghcr.io)
+- ADR-026: Development Feedback Loop (testing, CI validation)
 
 ## Current Phase
 
@@ -86,3 +88,43 @@ If CI fails:
 1. Read the failure logs: `gh run view --log-failed`
 2. Fix the issue in the next iteration
 3. Do NOT mark the task as complete until CI passes
+
+## Validation Scripts
+
+Three validation scripts are available in `./scripts/`:
+
+### Quick Validation (required before commit)
+```bash
+./scripts/validate-quick.sh
+```
+Fast checks (<60s): Python syntax, imports, TypeScript compilation.
+**Run this before every commit.**
+
+### Full Validation (run periodically)
+```bash
+./scripts/validate-full.sh
+```
+Comprehensive 5-phase validation:
+1. Static analysis (ruff, mypy, eslint)
+2. Unit tests (pytest)
+3. Backend integration tests (starts server, tests endpoints + WebSocket)
+4. Docker build verification
+5. Extension packaging
+
+Run after major changes or before releases.
+
+### Smoke Tests (for deployed backends)
+```bash
+./scripts/smoke-test.sh [backend_url]
+```
+Tests a running backend. If no URL provided, starts a local backend for testing.
+Tests: health, version, auth mode, WebSocket connectivity, recording flow.
+
+## When to Use Each Script
+
+| Scenario | Script |
+|----------|--------|
+| Before every commit | `validate-quick.sh` |
+| After major feature completion | `validate-full.sh` |
+| Testing deployed backend | `smoke-test.sh` |
+| Before creating a release | `validate-full.sh` + `smoke-test.sh` |
