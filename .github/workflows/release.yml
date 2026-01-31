@@ -106,7 +106,7 @@ jobs:
 
       - name: Update version
         working-directory: extension
-        run: npm version ${{ needs.validate.outputs.version }} --no-git-tag-version
+        run: npm version ${{ needs.validate.outputs.version }} --no-git-tag-version --allow-same-version
 
       - name: Build extension
         working-directory: extension
