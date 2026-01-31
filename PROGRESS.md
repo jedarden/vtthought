@@ -4,9 +4,9 @@
 
 Voice-to-code VS Code extension with Docker backend for speech-to-text transcription and LLM post-processing.
 
-## Current Phase: ADR-011 User Personalization - Final UI Tasks
+## Current Phase: ADR-025 Container Registry & Releases
 
-**Status**: Backend ~95% complete, Extension ~80% complete
+**Status**: Backend ~95% complete, Extension ~80% complete, Release Pipeline ~100% complete
 
 ### Completed (Session 1-17)
 
@@ -56,6 +56,15 @@ Voice-to-code VS Code extension with Docker backend for speech-to-text transcrip
 - [x] Metrics collection
 - [x] Error tracking
 
+#### Container Registry & Releases (ADR-025)
+- [x] CHANGELOG.md following Keep a Changelog format
+- [x] GitHub Actions release workflow (.github/workflows/release.yml)
+- [x] GitHub Actions edge build workflow (.github/workflows/edge.yml)
+- [x] Semantic versioning with git tags
+- [x] Automated Docker image builds (GPU + CPU variants)
+- [x] Automated VS Code extension packaging
+- [x] GitHub Release creation with changelog extraction
+
 #### User Personalization - Backend (ADR-011)
 - [x] SQLite database with 6 tables
 - [x] UserRepository with scoped access
@@ -82,7 +91,7 @@ Voice-to-code VS Code extension with Docker backend for speech-to-text transcrip
 
 ### In Progress
 
-**Current Task**: No active task - starting Session 18
+**Current Task**: No active task - starting Session 18 (ADR-025 complete, release pipeline ready)
 
 ### Next Up - ADR-011 Remaining UI Tasks
 
@@ -121,4 +130,4 @@ These items may be addressed based on user feedback during beta testing:
 - **Database Tables**: 6 (users, user_preferences, user_vocabulary, vocabulary_corrections, user_voice_commands, user_style_preferences)
 - **API Endpoints**: 30+
 - **Voice Commands**: 38 commands across all categories
-- **ADRs Implemented**: 16 (ADR-001 through ADR-024)
+- **ADRs Implemented**: 17 (ADR-001 through ADR-025)

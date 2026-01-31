@@ -16,7 +16,7 @@ These ADRs document the architectural decisions for building a VS Code extension
 │  │  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐   │  │
 │  │  │  WebView    │  │   Auth      │  │  WebSocket  │  │   Text      │   │  │
 │  │  │  Audio      │──│   Flow      │──│   Client    │──│   Insertion │   │  │
-│  │  │  Capture    │  │  (GitHub)   │  │  (wss://)   │  │             │   │  │
+│  │  │  Capture    │  │  (Google)   │  │  (wss://)   │  │             │   │  │
 │  │  └─────────────┘  └─────────────┘  └─────────────┘  └─────────────┘   │  │
 │  └───────────────────────────────────────────────────────────────────────┘  │
 │                                       │                                      │
@@ -44,7 +44,7 @@ These ADRs document the architectural decisions for building a VS Code extension
 | ADR | Title | Status | Summary |
 |-----|-------|--------|---------|
 | [001](./ADR-001-system-architecture.md) | System Architecture | Proposed | VS Code Extension + Remote Docker Backend |
-| [002](./ADR-002-authentication-strategy.md) | Authentication Strategy | Proposed | OAuth 2.0 with GitHub, JWT tokens |
+| [002](./ADR-002-authentication-strategy.md) | Authentication Strategy | Proposed | OAuth 2.0 with Google, JWT tokens |
 | [003](./ADR-003-audio-capture.md) | Audio Capture | Proposed | WebView with Web Audio API |
 | [004](./ADR-004-audio-streaming-protocol.md) | Audio Streaming Protocol | Proposed | WebSocket with binary frames |
 | [005](./ADR-005-stt-engine-selection.md) | STT Engine Selection | Proposed | faster-whisper (GPU) + Deepgram fallback |
@@ -60,6 +60,7 @@ These ADRs document the architectural decisions for building a VS Code extension
 | [017](./ADR-017-first-run-setup.md) | First-Run Setup | Proposed | 3-click onboarding, token auth, mic permissions |
 | [019](./ADR-019-observability.md) | Observability | Proposed | Health endpoints, structured logging, metrics |
 | [024](./ADR-024-versioning.md) | Versioning & Compatibility | Proposed | API versioning, feature detection, compatibility matrix |
+| [025](./ADR-025-container-registry-releases.md) | Container Registry & Releases | Proposed | ghcr.io hosting, semantic versioning, changelogs |
 
 ## Key Decisions Summary
 
@@ -82,7 +83,7 @@ These ADRs document the architectural decisions for building a VS Code extension
 
 ### Security
 - **No exposed ports** - Cloudflare Tunnel only
-- OAuth 2.0 (GitHub) for user authentication
+- OAuth 2.0 (Google) for user authentication
 - JWT tokens for session management
 - TLS via Cloudflare (automatic)
 - DDoS protection via Cloudflare

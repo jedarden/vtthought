@@ -1,0 +1,187 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      is_prerelease: ${{ steps.version.outputs.is_prerelease }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate tag format
+        id: version
+        run: |
+          TAG=${GITHUB_REF#refs/tags/v}
+          echo "version=$TAG" >> $GITHUB_OUTPUT
+
+          # Check if pre-release
+          if [[ "$TAG" =~ (alpha|beta|rc) ]]; then
+            echo "is_prerelease=true" >> $GITHUB_OUTPUT
+          else
+            echo "is_prerelease=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Validate CHANGELOG.md
+        run: |
+          VERSION=${{ steps.version.outputs.version }}
+          if ! grep -q "## \[$VERSION\]" CHANGELOG.md; then
+            echo "Error: CHANGELOG.md missing entry for version $VERSION"
+            exit 1
+          fi
+
+  build-backend:
+    needs: validate
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      matrix:
+        variant: [gpu, cpu]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=semver,pattern={{version}},suffix=-${{ matrix.variant }}
+            type=semver,pattern={{major}}.{{minor}},suffix=-${{ matrix.variant }}
+            type=semver,pattern={{major}},suffix=-${{ matrix.variant }}
+            type=raw,value=latest,suffix=-${{ matrix.variant }},enable=${{ matrix.variant == 'gpu' && needs.validate.outputs.is_prerelease == 'false' }}
+            type=raw,value=latest,enable=${{ matrix.variant == 'gpu' && needs.validate.outputs.is_prerelease == 'false' }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          context: ./backend
+          file: ./backend/Dockerfile${{ matrix.variant == 'cpu' && '.cpu' || '' }}
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            VERSION=${{ needs.validate.outputs.version }}
+            COMMIT_SHA=${{ github.sha }}
+
+  build-extension:
+    needs: validate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: extension/package-lock.json
+
+      - name: Install dependencies
+        working-directory: extension
+        run: npm ci
+
+      - name: Update version
+        working-directory: extension
+        run: npm version ${{ needs.validate.outputs.version }} --no-git-tag-version
+
+      - name: Build extension
+        working-directory: extension
+        run: npm run compile
+
+      - name: Package extension
+        working-directory: extension
+        run: npx @vscode/vsce package
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: vtthought-extension
+          path: extension/*.vsix
+
+  test:
+    needs: [validate, build-backend]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install test dependencies
+        run: |
+          cd backend
+          pip install pytest pytest-asyncio httpx websockets
+
+      - name: Run integration tests
+        run: |
+          cd backend
+          pytest test_integration.py -v
+        env:
+          ENVIRONMENT: test
+          SINGLE_USER_MODE: 'true'
+
+  release:
+    needs: [validate, build-backend, build-extension, test]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Extract changelog
+        id: changelog
+        run: |
+          VERSION=${{ needs.validate.outputs.version }}
+          # Extract section for this version from CHANGELOG.md
+          awk "/## \[$VERSION\]/,/## \[/" CHANGELOG.md | head -n -1 > release_notes.md
+          cat release_notes.md
+
+      - name: Download extension artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: vtthought-extension
+          path: ./artifacts
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          name: VTThought v${{ needs.validate.outputs.version }}
+          body_path: release_notes.md
+          prerelease: ${{ needs.validate.outputs.is_prerelease == 'true' }}
+          files: |
+            ./artifacts/*.vsix
+          generate_release_notes: false
+
+      - name: Update latest tag
+        if: needs.validate.outputs.is_prerelease == 'false'
+        run: |
+          git config user.name github-actions
+          git config user.email github-actions@github.com
+          git tag -fa latest -m "Latest stable release"
+          git push origin latest --force
