@@ -5,7 +5,6 @@ Validate Dockerfile syntax and structure.
 This script validates Dockerfiles without requiring Docker daemon.
 It checks for common issues and best practices.
 """
-import re
 import sys
 from pathlib import Path
 
