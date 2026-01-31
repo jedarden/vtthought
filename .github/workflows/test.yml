@@ -63,7 +63,7 @@ jobs:
           pytest test_integration.py -v --tb=short
         env:
           SINGLE_USER_MODE: 'true'
-          ENVIRONMENT: 'test'
+          ENVIRONMENT: 'testing'
 
   extension-lint:
     runs-on: ubuntu-latest
