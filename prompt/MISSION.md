@@ -5,20 +5,23 @@
 ## Iteration Rules
 
 **ONE THING PER LOOP**: Each iteration must focus on completing exactly ONE task:
-1. Read `./PROGRESS.md` to understand current state
-2. Pick the next uncompleted task from "In Progress" or "Next Up"
-3. Complete that ONE task fully
-4. **Run quick validation**: `./scripts/validate-quick.sh`
-5. Update `./PROGRESS.md` with what was done
-6. Commit with conventional commit message
-7. **Push to GitHub**: `git push origin main`
-8. **Verify CI**: Wait for GitHub Actions and confirm they passed
+1. **Change to project root**: `cd /home/coder/vtthought`
+2. Read `prompt/PROGRESS.md` to understand current state
+3. Pick the next uncompleted task from "In Progress" or "Next Up"
+4. Complete that ONE task fully
+5. **Run quick validation**: `/home/coder/vtthought/scripts/validate-quick.sh`
+6. Update `prompt/PROGRESS.md` with what was done
+7. Commit with conventional commit message
+8. **Push to GitHub**: `git push origin main`
+9. **Verify CI**: Wait for GitHub Actions and confirm they passed
 
 Do NOT attempt multiple tasks in a single iteration. Depth over breadth.
 
 ## Project Root
 
-All code paths are relative to: `/home/coder/vtthought/`
+**IMPORTANT**: Always work from the project root: `/home/coder/vtthought/`
+
+Run `cd /home/coder/vtthought` at the start of each iteration.
 
 ## Project Overview
 
@@ -92,18 +95,18 @@ If CI fails:
 
 ## Validation Scripts
 
-Three validation scripts are available in `./scripts/`:
+Three validation scripts are available (use absolute paths):
 
 ### Quick Validation (required before commit)
 ```bash
-./scripts/validate-quick.sh
+/home/coder/vtthought/scripts/validate-quick.sh
 ```
 Fast checks (<60s): Python syntax, imports, TypeScript compilation.
 **Run this before every commit.**
 
 ### Full Validation (run periodically)
 ```bash
-./scripts/validate-full.sh
+/home/coder/vtthought/scripts/validate-full.sh
 ```
 Comprehensive 5-phase validation:
 1. Static analysis (ruff, mypy, eslint)
@@ -116,7 +119,7 @@ Run after major changes or before releases.
 
 ### Smoke Tests (for deployed backends)
 ```bash
-./scripts/smoke-test.sh [backend_url]
+/home/coder/vtthought/scripts/smoke-test.sh [backend_url]
 ```
 Tests a running backend. If no URL provided, starts a local backend for testing.
 Tests: health, version, auth mode, WebSocket connectivity, recording flow.
@@ -125,7 +128,7 @@ Tests: health, version, auth mode, WebSocket connectivity, recording flow.
 
 | Scenario | Script |
 |----------|--------|
-| Before every commit | `validate-quick.sh` |
-| After major feature completion | `validate-full.sh` |
-| Testing deployed backend | `smoke-test.sh` |
-| Before creating a release | `validate-full.sh` + `smoke-test.sh` |
+| Before every commit | `/home/coder/vtthought/scripts/validate-quick.sh` |
+| After major feature completion | `/home/coder/vtthought/scripts/validate-full.sh` |
+| Testing deployed backend | `/home/coder/vtthought/scripts/smoke-test.sh` |
+| Before creating a release | Both `validate-full.sh` + `smoke-test.sh` |
