@@ -2,7 +2,7 @@
 
 > Located in `prompt/` - updated by marathon agent each iteration.
 
-## Current Status: Maintenance Mode (Session 196)
+## Current Status: Maintenance Mode (Session 197)
 
 All 19 ADRs implemented, project awaiting user feedback.
 
@@ -2457,6 +2457,28 @@ All 19 ADRs implemented, project awaiting user feedback.
 - Kubernetes deployment manifests in place (k8s/ directory with 9 YAML files)
 - No new development tasks pending
 - Project awaits user testing and feedback collection
+
+---
+
+*Updated by marathon-coding agent*
+
+### Session 197 (2026-01-31)
+- Maintenance mode verification
+- Added ADR-027: VS Code Marketplace Publication
+  - Comprehensive guide for publishing VTThought extension to marketplace
+  - Publisher identity and verification setup (jedarden)
+  - Required package.json fields and assets specification
+  - Manual and automated publication workflows with vsce CLI
+  - Version strategy aligned with ADR-024 semantic versioning
+  - Alternative distribution via VSIX downloads for GitHub Releases
+  - Pre-publication checklist and marketplace listing guidelines
+  - Implementation steps for CI/CD integration
+- Updated ADRs/README.md to reference ADR-027
+- Updated MISSION.md to include ADR-027 reference
+- Confirmed quick validation passed (TypeScript compilation, Python syntax, imports)
+- All 19 ADRs implemented (ADR-001 through ADR-027)
+- Project remains stable in maintenance mode
+- Awaiting user feedback for next phase
 
 ---
 
