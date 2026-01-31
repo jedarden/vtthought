@@ -3658,6 +3658,28 @@ All 21 ADRs implemented, user testing infrastructure now available.
 
 *Updated by marathon-coding agent*
 
+### Session 298 - CI Fix and Release v0.2.1
+- Identified CI failure in Release workflow (v0.2.0)
+  - Root cause: `npm version` command fails when package.json already contains target version
+  - Fixed: Added `--allow-same-version` flag to `.github/workflows/release.yml`
+- Created v0.2.1 release:
+  - Updated extension/package.json to version 0.2.1
+  - Added CHANGELOG entry for v0.2.1
+  - Tagged and pushed v0.2.1
+- CI status verified: all workflows passing (#21547945754 Edge Build, #21547945753 Test, #21547945731 Release)
+- GitHub release v0.2.1 published successfully
+- Quick validation passed (Python syntax, imports, TypeScript compilation)
+- Git status clean
+- All 21 ADRs implemented (ADR-001 through ADR-027)
+- No GitHub issues reported
+- Community stats: 0 stars, 0 watchers
+- Project remains stable in maintenance mode
+- Progress file updated
+
+---
+
+*Updated by marathon-coding agent*
+
 ### Session 297 - Maintenance Check
 - Verified project stability
 - Git status clean (only CHANGELOG update)
