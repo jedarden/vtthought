@@ -11,6 +11,7 @@
 4. Update `./PROGRESS.md` with what was done
 5. Commit with conventional commit message
 6. **Push to GitHub**: `git push origin main`
+7. **Verify CI**: Wait for GitHub Actions and confirm they passed
 
 Do NOT attempt multiple tasks in a single iteration. Depth over breadth.
 
