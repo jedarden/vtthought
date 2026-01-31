@@ -2,9 +2,18 @@
 
 > Located in `prompt/` - updated by marathon agent each iteration.
 
-## Current Status: Maintenance Mode (Session 365)
+## Current Status: Maintenance Mode (Session 366)
 
 All 21 ADRs implemented, user testing infrastructure now available.
+
+### Completed This Session (Session 366)
+- [x] Commit pending voice command infrastructure changes
+  - Command message support for voice input view provider
+  - Added CommandMessage interface and onCommand callback registration
+  - All validation checks passed (Python syntax, imports, TypeScript compilation)
+  - GitHub Actions CI verified passing (Edge Build #21551222883, Test #21551222900 completed successfully)
+  - Git status clean (committed and pushed to origin/main)
+  - Progress file updated
 
 ### Completed This Session (Session 365)
 - [x] Maintenance mode verification
