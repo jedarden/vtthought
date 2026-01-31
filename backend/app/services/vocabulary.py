@@ -20,6 +20,9 @@ class VocabularyCache:
     Configuration values loaded from settings.
     """
 
+    _cache: TTLCache[str, str]
+    _lock: asyncio.Lock
+
     def __init__(self, maxsize: int | None = None, ttl: int | None = None):
         from app.config import get_settings
 
