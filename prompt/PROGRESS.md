@@ -2,7 +2,7 @@
 
 > Located in `prompt/` - updated by marathon agent each iteration.
 
-## Current Status: Maintenance Mode (Session 27)
+## Current Status: Maintenance Mode (Session 31)
 
 All 16 ADRs implemented, project awaiting user feedback.
 
