@@ -7,8 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-01-31
+
 ### Added
-- ADR-025: Container Registry & Releases documentation
+- User Preferences Editor UI (ADR-011)
+- Custom Voice Commands UI (ADR-008)
+- Backend API endpoints for preferences and commands
+
+### Changed
+- Improved style preferences integration with command parser
+- Enhanced user data management features
 
 ## [0.1.0] - 2026-01-31
 
