@@ -6,7 +6,6 @@ Learns user formatting preferences from corrections and applies them to LLM clea
 import asyncio
 import re
 from dataclasses import dataclass
-from functools import lru_cache
 from typing import Optional
 
 from app.database import UserRepository, get_db

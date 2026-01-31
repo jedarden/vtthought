@@ -20,14 +20,9 @@ if TYPE_CHECKING:
 
 from app.errors import (
     BackendError,
-    CircuitBreaker,
-    RetryConfig,
-    TimeoutError,
     ValidationError,
-    get_circuit_breaker,
-    retry_with_backoff,
 )
-from app.services.vocabulary import UserVocabulary, get_user_vocabulary
+from app.services.vocabulary import get_user_vocabulary
 
 logger = logging.getLogger(__name__)
 

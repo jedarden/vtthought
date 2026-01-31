@@ -11,7 +11,7 @@ Performance optimizations:
 import asyncio
 from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import AsyncGenerator, Optional
+from typing import AsyncGenerator
 
 import aiosqlite
 
@@ -527,7 +527,6 @@ async def ensure_default_user() -> str:
     Returns:
         User ID of the default user
     """
-    import uuid
     default_user_id = "default"
 
     async with get_db() as db:

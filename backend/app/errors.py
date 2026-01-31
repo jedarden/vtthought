@@ -259,7 +259,7 @@ class CircuitBreaker:
             result = await operation()
             self.on_success()
             return result
-        except Exception as e:
+        except Exception:
             self.on_failure()
             raise
 

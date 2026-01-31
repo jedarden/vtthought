@@ -12,7 +12,6 @@ from dataclasses import dataclass, field
 from typing import Optional
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Query
-from fastapi.responses import JSONResponse
 
 from app.api import auth as auth_api
 from app.api import user as user_api
@@ -38,7 +37,7 @@ router = APIRouter()
 router.include_router(auth_api.auth_router, prefix="/auth", tags=["authentication"])
 
 # Include OAuth routes (ADR-002)
-from app.api import oauth as oauth_api
+from app.api import oauth as oauth_api  # noqa: E402
 router.include_router(oauth_api.oauth_router, prefix="/auth", tags=["oauth"])
 
 # Include user personalization routes (ADR-011)

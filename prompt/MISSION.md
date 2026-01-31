@@ -61,3 +61,28 @@ git push origin main
 ```
 
 Note: The `Co-Authored-By: Claude` line enables detection by the claude-leaderboard system which searches GitHub for this exact substring.
+
+## Verify CI Status
+
+After pushing, **always verify GitHub Actions succeeded**:
+
+```bash
+# Wait for workflow to start (may take a few seconds)
+sleep 10
+
+# Check latest workflow run status
+gh run list --repo jedarden/vtthought --limit 1
+
+# Watch the run until completion (optional, for long runs)
+gh run watch --repo jedarden/vtthought
+
+# If a run fails, view logs:
+gh run view --repo jedarden/vtthought --log-failed
+```
+
+**Expected output**: All checks should show `completed` with `success` conclusion.
+
+If CI fails:
+1. Read the failure logs: `gh run view --log-failed`
+2. Fix the issue in the next iteration
+3. Do NOT mark the task as complete until CI passes

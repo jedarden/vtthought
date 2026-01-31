@@ -5,7 +5,6 @@ Implements token-based authentication for the VTThought backend.
 Supports multiple auth methods: OAuth (GitHub), username/password, and single-user mode.
 """
 import hashlib
-import json
 import logging
 import secrets
 from dataclasses import dataclass, field

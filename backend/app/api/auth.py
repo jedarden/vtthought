@@ -8,8 +8,7 @@ import logging
 from dataclasses import dataclass, field
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
-from fastapi.responses import JSONResponse
+from fastapi import APIRouter, Depends, HTTPException
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel, field_validator
 
@@ -19,12 +18,10 @@ from app.auth import (
     create_session,
     create_jwt_token,
     get_default_user,
-    get_or_create_user,
     get_user_tokens,
     revoke_extension_token,
     validate_extension_token,
     validate_password_user,
-    validate_session,
     User,
 )
 from app.config import get_settings

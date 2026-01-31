@@ -6,7 +6,6 @@ Supports streaming responses and multiple LLM backends.
 """
 from __future__ import annotations
 
-import asyncio
 import json
 import logging
 from abc import ABC, abstractmethod
@@ -18,11 +17,10 @@ from typing import TYPE_CHECKING, AsyncIterator, Optional
 import httpx
 
 if TYPE_CHECKING:
-    from app.models.transcription import CleanupContext, VoiceCommand
+    from app.models.transcription import CleanupContext
 
 from app.errors import (
     BackendError,
-    CircuitBreaker,
     ConnectionError as VTConnectionError,
     RateLimitError,
     RetryConfig,
@@ -154,7 +152,7 @@ class OllamaProvider(BaseLLMProvider):
                 ) from e
             except httpx.TimeoutException as e:
                 raise VTTimeoutError(
-                    message=f"Ollama request timed out",
+                    message="Ollama request timed out",
                     code="OLLAMA_TIMEOUT",
                 ) from e
             except httpx.HTTPStatusError as e:
@@ -216,7 +214,7 @@ class OllamaProvider(BaseLLMProvider):
         except httpx.TimeoutException as e:
             logger.error(f"Ollama timeout during streaming: {e}")
             raise VTTimeoutError(
-                message=f"Ollama request timed out",
+                message="Ollama request timed out",
                 code="OLLAMA_TIMEOUT",
             ) from e
         except httpx.HTTPStatusError as e:

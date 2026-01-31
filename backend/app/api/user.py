@@ -4,18 +4,16 @@ User personalization API endpoints (ADR-011).
 Provides endpoints for user preferences, vocabulary, corrections,
 and style learning.
 """
-import json
 import logging
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 
-from app.auth import validate_extension_token, get_default_user
 from app.database import UserRepository, get_db, ensure_default_user
 from app.models.user import CleanupLevel, HotkeyMode, UserPreferences
 from app.services.style import StyleLearner
-from app.services.vocabulary import UserVocabulary, get_user_vocabulary
+from app.services.vocabulary import get_user_vocabulary
 
 logger = logging.getLogger(__name__)
 

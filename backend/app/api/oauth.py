@@ -6,11 +6,9 @@ Implements Google OAuth 2.0 authentication endpoints for web UI.
 import logging
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
+from fastapi import APIRouter, HTTPException, Query, Request, Response
 from fastapi.responses import RedirectResponse
 from pydantic import BaseModel
-
-from app.auth import User
 from app.config import get_settings
 from app.oauth import (
     get_oauth_provider,

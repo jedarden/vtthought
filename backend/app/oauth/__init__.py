@@ -6,7 +6,6 @@ Implements Google OAuth 2.0 authentication for web UI login.
 import logging
 from dataclasses import dataclass
 from typing import Optional
-from urllib.parse import urljoin
 
 from authlib.integrations.httpx_client import AsyncOAuth2Client
 from authlib.oauth2.rfc6749.errors import OAuth2Error
