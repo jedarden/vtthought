@@ -8,9 +8,10 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Callable, TypeVar
+from typing import Any, TypeVar
 
 logger = logging.getLogger(__name__)
 
@@ -243,7 +244,7 @@ class CircuitBreaker:
             return False
         return True
 
-    async def execute(self, operation: Callable[..., T]) -> T:
+    async def execute(self, operation: Callable[..., Awaitable[T]]) -> T:
         """
         Execute operation with circuit breaker protection.
 
@@ -281,7 +282,7 @@ class RetryConfig:
 
 
 async def retry_with_backoff(
-    operation: Callable[..., T],
+    operation: Callable[..., Awaitable[T]],
     config: RetryConfig | None = None,
     is_retryable: Callable[[Exception], bool] | None = None,
 ) -> T:

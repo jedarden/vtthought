@@ -9,15 +9,14 @@ from __future__ import annotations
 import json
 import logging
 from abc import ABC, abstractmethod
-from dataclasses import dataclass, field
+from collections.abc import AsyncIterator
 from enum import Enum
 from functools import lru_cache
-from typing import TYPE_CHECKING, AsyncIterator, Optional
+from typing import Optional
 
 import httpx
 
-if TYPE_CHECKING:
-    from app.models.transcription import CleanupContext
+from app.models.transcription import CleanupContext, CleanupResult
 
 from app.errors import (
     BackendError,
@@ -40,37 +39,6 @@ class LLMProvider(str, Enum):
     ANTHROPIC = "anthropic"
 
 
-@dataclass
-class CleanupContext:
-    """Context passed to LLM for transcription cleanup."""
-
-    # Required
-    raw_transcription: str
-
-    # User personalization (ADR-011)
-    user_vocabulary: list[str] = field(default_factory=list)
-    learned_corrections: dict[str, str] = field(default_factory=dict)
-
-    # Session context (optional but improves accuracy)
-    current_file: Optional[str] = None
-    recent_actions: list[str] = field(default_factory=list)
-    open_files: list[str] = field(default_factory=list)
-    git_branch: Optional[str] = None
-
-    # Preferences
-    cleanup_level: str = "moderate"  # minimal, moderate, aggressive
-    preserve_casing: bool = True
-
-
-@dataclass
-class CleanupResult:
-    """Result from LLM cleanup."""
-
-    cleaned_text: str
-    raw_text: str
-    commands: list[dict] = field(default_factory=list)
-
-
 class BaseLLMProvider(ABC):
     """Abstract base for any LLM provider."""
 
@@ -80,7 +48,7 @@ class BaseLLMProvider(ABC):
         pass
 
     @abstractmethod
-    async def stream(self, prompt: str) -> AsyncIterator[str]:
+    async def stream(self, prompt: str) -> AsyncIterator[str]:  # type: ignore[misc,override]
         """Stream completion from LLM."""
         pass
 
@@ -175,7 +143,7 @@ class OllamaProvider(BaseLLMProvider):
             ),
         )
 
-    async def stream(self, prompt: str) -> AsyncIterator[str]:
+    async def stream(self, prompt: str) -> AsyncIterator[str]:  # type: ignore[misc,override]
         """Stream completion from Ollama with error handling."""
         from app.config import get_settings
 
@@ -275,7 +243,7 @@ class OpenAIProvider(BaseLLMProvider):
         data = response.json()
         return data["choices"][0]["message"]["content"].strip()
 
-    async def stream(self, prompt: str) -> AsyncIterator[str]:
+    async def stream(self, prompt: str) -> AsyncIterator[str]:  # type: ignore[misc,override]
         async with self.client.stream(
             "POST",
             "/chat/completions",
@@ -345,7 +313,7 @@ class AnthropicProvider(BaseLLMProvider):
         data = response.json()
         return data["content"][0]["text"].strip()
 
-    async def stream(self, prompt: str) -> AsyncIterator[str]:
+    async def stream(self, prompt: str) -> AsyncIterator[str]:  # type: ignore[misc,override]
         async with self.client.stream(
             "POST",
             "/v1/messages",
@@ -576,7 +544,7 @@ class TranscriptionCleaner:
 
         prompt = build_cleanup_prompt(ctx)
 
-        async for token in self.llm.stream(prompt):
+        async for token in self.llm.stream(prompt):  # type: ignore[attr-defined]
             yield token
 
     def _rule_based_cleanup(self, text: str) -> str:

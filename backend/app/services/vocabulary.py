@@ -20,7 +20,7 @@ class VocabularyCache:
     Configuration values loaded from settings.
     """
 
-    def __init__(self, maxsize: int = None, ttl: int = None):
+    def __init__(self, maxsize: int | None = None, ttl: int | None = None):
         from app.config import get_settings
 
         settings = get_settings()
@@ -84,7 +84,7 @@ class UserVocabulary:
             return cached
 
         # Get vocabulary from database
-        async with await get_db() as db:
+        async with get_db() as db:
             repo = UserRepository(db, self.user_id)
             vocab = await repo.get_vocabulary()
 
@@ -115,7 +115,7 @@ class UserVocabulary:
         Returns:
             Text with corrections applied
         """
-        async with await get_db() as db:
+        async with get_db() as db:
             repo = UserRepository(db, self.user_id)
             corrections = await repo.get_corrections()
 
@@ -150,7 +150,7 @@ class UserVocabulary:
         if original == corrected:
             return
 
-        async with await get_db() as db:
+        async with get_db() as db:
             repo = UserRepository(db, self.user_id)
             await repo.learn_correction(original, corrected, auto_learned=True)
 
@@ -173,7 +173,7 @@ class UserVocabulary:
             boost: How strongly to bias toward this word (higher = more bias)
             pronunciation_hint: Optional hint for similar-sounding words
         """
-        async with await get_db() as db:
+        async with get_db() as db:
             repo = UserRepository(db, self.user_id)
             await repo.add_vocabulary_word(word, category, boost, pronunciation_hint)
 
@@ -190,7 +190,7 @@ class UserVocabulary:
         Returns:
             True if word was deleted, False if not found
         """
-        async with await get_db() as db:
+        async with get_db() as db:
             repo = UserRepository(db, self.user_id)
             deleted = await repo.delete_vocabulary_word(word)
 
@@ -206,7 +206,7 @@ class UserVocabulary:
         Returns:
             List of vocabulary entries with metadata
         """
-        async with await get_db() as db:
+        async with get_db() as db:
             repo = UserRepository(db, self.user_id)
             return await repo.get_vocabulary()
 
@@ -217,7 +217,7 @@ class UserVocabulary:
         Returns:
             List of correction entries
         """
-        async with await get_db() as db:
+        async with get_db() as db:
             repo = UserRepository(db, self.user_id)
             return await repo.get_corrections()
 
@@ -231,7 +231,7 @@ class UserVocabulary:
         Args:
             spoken_list: List of spoken terms that were matched/applied
         """
-        async with await get_db() as db:
+        async with get_db() as db:
             for spoken in spoken_list:
                 await db.execute(
                     """UPDATE vocabulary_corrections
@@ -247,7 +247,7 @@ class UserVocabulary:
 
         Note: For transcription hot path, use _batch_increment_correction_counts instead.
         """
-        async with await get_db() as db:
+        async with get_db() as db:
             await db.execute(
                 """UPDATE vocabulary_corrections
                    SET occurrences = occurrences + 1

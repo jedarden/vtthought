@@ -41,7 +41,7 @@ class StyleLearner:
     Configuration values loaded from settings.
     """
 
-    def __init__(self, user_id: str, min_occurrences: int = None):
+    def __init__(self, user_id: str, min_occurrences: int | None = None):
         """
         Initialize style learner for user.
 
@@ -72,7 +72,7 @@ class StyleLearner:
 
         # Record each change
         if changes:
-            async with await get_db() as db:
+            async with get_db() as db:
                 repo = UserRepository(db, self.user_id)
                 for change in changes:
                     await repo.record_style_change(
@@ -337,7 +337,7 @@ class StyleLearner:
         Returns:
             Dictionary of confident preferences
         """
-        async with await get_db() as db:
+        async with get_db() as db:
             repo = UserRepository(db, self.user_id)
             style_prefs = await repo.get_style_preferences()
 

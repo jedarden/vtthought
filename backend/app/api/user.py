@@ -98,7 +98,7 @@ async def get_preferences(
     user_id: str = Depends(get_user_id)
 ) -> PreferencesResponse:
     """Get user preferences."""
-    async with await get_db() as db:
+    async with get_db() as db:
         repo = UserRepository(db, user_id)
         prefs = await repo.get_preferences()
 
@@ -111,7 +111,7 @@ async def update_preferences(
     user_id: str = Depends(get_user_id)
 ) -> dict:
     """Update user preferences."""
-    async with await get_db() as db:
+    async with get_db() as db:
         repo = UserRepository(db, user_id)
 
         # Get current preferences
@@ -261,7 +261,7 @@ async def get_style_preferences_list(
     user_id: str = Depends(get_user_id)
 ) -> StylePreferencesListResponse:
     """Get all user style preferences (manual management)."""
-    async with await get_db() as db:
+    async with get_db() as db:
         repo = UserRepository(db, user_id)
         style_prefs = await repo.get_style_preferences()
 
@@ -274,7 +274,7 @@ async def create_style_preference(
     user_id: str = Depends(get_user_id)
 ) -> dict:
     """Manually create a style preference."""
-    async with await get_db() as db:
+    async with get_db() as db:
         repo = UserRepository(db, user_id)
         await repo.record_style_change(
             request.category,
@@ -298,7 +298,7 @@ async def delete_style_preference(
     user_id: str = Depends(get_user_id)
 ) -> dict:
     """Delete a style preference."""
-    async with await get_db() as db:
+    async with get_db() as db:
         if pattern:
             await db.execute(
                 """DELETE FROM user_style_preferences
@@ -326,7 +326,7 @@ async def export_user_data(
     user_id: str = Depends(get_user_id)
 ) -> ExportDataResponse:
     """Export all user data as JSON."""
-    async with await get_db() as db:
+    async with get_db() as db:
         repo = UserRepository(db, user_id)
 
         # Get user info
@@ -356,7 +356,7 @@ async def delete_user_data(
     user_id: str = Depends(get_user_id)
 ) -> dict:
     """Delete all user data (right to be forgotten)."""
-    async with await get_db() as db:
+    async with get_db() as db:
         # Cascade delete handles all related tables
         await db.execute("DELETE FROM users WHERE id = ?", (user_id,))
         await db.commit()
@@ -433,7 +433,7 @@ async def get_voice_commands(
     user_id: str = Depends(get_user_id)
 ) -> VoiceCommandListResponse:
     """Get user's custom voice commands."""
-    async with await get_db() as db:
+    async with get_db() as db:
         repo = UserRepository(db, user_id)
         commands = await repo.get_custom_commands(include_disabled=include_disabled)
 
@@ -446,7 +446,7 @@ async def get_voice_command(
     user_id: str = Depends(get_user_id)
 ) -> VoiceCommandResponse:
     """Get a specific custom voice command."""
-    async with await get_db() as db:
+    async with get_db() as db:
         repo = UserRepository(db, user_id)
         command = await repo.get_custom_command(cmd_id)
 
@@ -462,7 +462,7 @@ async def create_voice_command(
     user_id: str = Depends(get_user_id)
 ) -> VoiceCommandResponse:
     """Create a new custom voice command."""
-    async with await get_db() as db:
+    async with get_db() as db:
         repo = UserRepository(db, user_id)
         cmd_id = await repo.add_custom_command(
             triggers=request.triggers,
@@ -485,7 +485,7 @@ async def update_voice_command(
     user_id: str = Depends(get_user_id)
 ) -> VoiceCommandResponse:
     """Update a custom voice command."""
-    async with await get_db() as db:
+    async with get_db() as db:
         repo = UserRepository(db, user_id)
 
         # First verify the command exists
@@ -519,7 +519,7 @@ async def delete_voice_command(
     user_id: str = Depends(get_user_id)
 ) -> dict:
     """Delete a custom voice command."""
-    async with await get_db() as db:
+    async with get_db() as db:
         repo = UserRepository(db, user_id)
         deleted = await repo.delete_custom_command(cmd_id)
 

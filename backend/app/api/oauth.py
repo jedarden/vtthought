@@ -88,7 +88,7 @@ async def google_callback(
     request: Request,
     code: str = Query(..., description="Authorization code from Google"),
     state: Optional[str] = Query(None, description="State parameter for CSRF protection"),
-) -> Response:
+) -> Response | OAuthCallbackResponse:
     """
     Handle Google OAuth callback.
 

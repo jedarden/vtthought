@@ -469,8 +469,8 @@ class UserRepository:
     ) -> bool:
         """Update a custom voice command by ID."""
         import json
-        updates = []
-        values = []
+        updates: list[str] = []
+        values: list[object] = []
 
         if triggers is not None:
             updates.append("triggers = ?")

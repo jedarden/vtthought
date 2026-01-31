@@ -176,14 +176,14 @@ def create_streaming_message(token: str, position: int) -> StreamingMessage:
 def create_final_message(
     raw: str,
     cleaned: str,
-    commands: list[VoiceCommand] | None = None,
+    commands: list[dict] | None = None,
 ) -> FinalMessage:
     """Create a final transcription message."""
     return FinalMessage(
         type="final",
         raw=raw,
         cleaned=cleaned,
-        commands=[c.__dict__ for c in (commands or [])],
+        commands=commands or [],
     )
 
 
