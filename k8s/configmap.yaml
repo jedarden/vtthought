@@ -1,0 +1,39 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: vtthought-config
+  namespace: vtthought
+  labels:
+    app.kubernetes.io/name: vtthought
+data:
+  # Environment
+  ENVIRONMENT: "production"
+  DEBUG: "false"
+  LOG_LEVEL: "INFO"
+
+  # Server
+  HOST: "0.0.0.0"
+  PORT: "8000"
+
+  # Authentication (ADR-002)
+  # Set to "true" for single-user mode (no auth required)
+  SINGLE_USER_MODE: "false"
+
+  # STT Configuration (ADR-005)
+  STT_ENGINE: "faster-whisper"
+  STT_DEVICE: "cpu"  # Change to "cuda" for GPU
+  STT_COMPUTE_TYPE: "int8"  # Use "float16" for GPU
+  STT_MODEL: "base"  # Options: tiny, base, small, medium, large-v3
+
+  # LLM Configuration (ADR-006)
+  LLM_PROVIDER: "ollama"
+  # Point to Ollama service (same namespace or external)
+  LLM_BASE_URL: "http://ollama.vtthought.svc.cluster.local:11434"
+  LLM_MODEL: "llama3.1:8b"
+
+  # Database
+  DATABASE_PATH: "/data/vtthought.db"
+
+  # Cache
+  VOCAB_CACHE_MAX_SIZE: "1000"
+  VOCAB_CACHE_TTL_SECONDS: "3600"

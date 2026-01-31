@@ -1,0 +1,30 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: vtthought-data
+  namespace: vtthought
+  labels:
+    app.kubernetes.io/name: vtthought
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+  # Use default storage class (local-path for k3s)
+  # storageClassName: local-path
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: vtthought-models
+  namespace: vtthought
+  labels:
+    app.kubernetes.io/name: vtthought
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi  # Whisper models can be ~1-3GB
+  # storageClassName: local-path
