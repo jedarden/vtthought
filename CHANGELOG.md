@@ -7,17 +7,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.2.0] - 2026-01-31
-
-### Added
-- User Preferences Editor UI (ADR-011)
-- Custom Voice Commands UI (ADR-008)
-- Backend API endpoints for preferences and commands
-
-### Changed
-- Improved style preferences integration with command parser
-- Enhanced user data management features
-
 ## [0.1.0] - 2026-01-31
 
 ### Added
@@ -40,6 +29,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Learned corrections from user edits
   - Style preference learning (punctuation, capitalization, numbers)
   - GDPR-compliant data export and deletion
+  - User Preferences Editor UI for managing vocabulary, style, and corrections
+  - Custom Voice Commands UI for creating and managing voice commands
 - First-run setup wizard (3-click onboarding)
 - Version negotiation between extension and backend (ADR-024)
 - Circuit breaker pattern for error handling
@@ -50,7 +41,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Beta testing guide (docs/BETA_TESTING.md)
 
 ### Architecture
-- 16 ADRs documenting all architectural decisions
+- 21 ADRs documenting all architectural decisions
 - Extension: ~6,000 lines of TypeScript
 - Backend: ~6,200 lines of Python
 - 6 database tables for user data
