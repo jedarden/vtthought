@@ -4,9 +4,11 @@ VTThought Configuration
 Configuration management using Pydantic Settings.
 Supports environment variables and .env files.
 """
+import os
 from functools import lru_cache
 from typing import Literal
 
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -65,12 +67,22 @@ class Settings(BaseSettings):
     stt_streaming_chunk_size: int = 16000  # 1 second at 16kHz
     stt_streaming_process_interval: int = 8000  # Process every 500ms
 
-    # LLM (ADR-006) - Configuration for Ollama
-    llm_provider: Literal["ollama", "openai"] = "ollama"
+    # LLM (ADR-006) - Configuration for LLM providers
+    llm_provider: Literal["ollama", "openai", "anthropic"] = "ollama"
+    llm_api_key: str = ""  # API key for OpenAI/Anthropic
     llm_base_url: str = "http://localhost:11434"
     llm_model: str = "llama3.1:8b"
     llm_temperature: float = 0.3
     llm_max_tokens: int = 2048
+
+    @field_validator("llm_api_key", mode="before")
+    @classmethod
+    def get_api_key_from_env(cls, v: str) -> str:
+        """Fall back to OPENAI_API_KEY or ANTHROPIC_API_KEY if llm_api_key not set."""
+        if v:
+            return v
+        # Check common API key environment variables
+        return os.environ.get("OPENAI_API_KEY", "") or os.environ.get("ANTHROPIC_API_KEY", "")
 
     # LLM Performance Tuning (ADR-006)
     llm_http_timeout: float = 120.0  # HTTP request timeout in seconds

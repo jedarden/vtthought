@@ -73,10 +73,10 @@ echo -n "1. Health endpoint... "
 RESPONSE=$(curl -s "$BACKEND_URL/api/health")
 if echo "$RESPONSE" | grep -q "healthy"; then
     echo -e "${GREEN}PASS${NC}"
-    ((PASSED++))
+    PASSED=$((PASSED + 1))
 else
     echo -e "${RED}FAIL${NC} - $RESPONSE"
-    ((FAILED++))
+    FAILED=$((FAILED + 1))
 fi
 
 # Test 2: Version endpoint
@@ -84,10 +84,10 @@ echo -n "2. Version endpoint... "
 RESPONSE=$(curl -s "$BACKEND_URL/api/version")
 if echo "$RESPONSE" | grep -q "backend_version"; then
     echo -e "${GREEN}PASS${NC}"
-    ((PASSED++))
+    PASSED=$((PASSED + 1))
 else
     echo -e "${RED}FAIL${NC}"
-    ((FAILED++))
+    FAILED=$((FAILED + 1))
 fi
 
 # Test 3: Auth mode endpoint
@@ -95,10 +95,10 @@ echo -n "3. Auth mode endpoint... "
 RESPONSE=$(curl -s "$BACKEND_URL/api/auth/mode")
 if echo "$RESPONSE" | grep -q "mode"; then
     echo -e "${GREEN}PASS${NC}"
-    ((PASSED++))
+    PASSED=$((PASSED + 1))
 else
     echo -e "${RED}FAIL${NC}"
-    ((FAILED++))
+    FAILED=$((FAILED + 1))
 fi
 
 # Test 4: WebSocket connection
@@ -124,10 +124,10 @@ asyncio.run(test())
 
 if echo "$WS_TEST" | grep -q "OK"; then
     echo -e "${GREEN}PASS${NC}"
-    ((PASSED++))
+    PASSED=$((PASSED + 1))
 else
     echo -e "${RED}FAIL${NC} - $WS_TEST"
-    ((FAILED++))
+    FAILED=$((FAILED + 1))
 fi
 
 # Test 5: WebSocket start/stop recording
@@ -160,25 +160,25 @@ asyncio.run(test())
 
 if echo "$WS_TEST" | grep -q "OK"; then
     echo -e "${GREEN}PASS${NC}"
-    ((PASSED++))
+    PASSED=$((PASSED + 1))
 else
     echo -e "${RED}FAIL${NC} - $WS_TEST"
-    ((FAILED++))
+    FAILED=$((FAILED + 1))
 fi
 
 # Test 6: User preferences (single-user mode)
 echo -n "6. User preferences endpoint... "
-RESPONSE=$(curl -s "$BACKEND_URL/api/user/preferences")
+RESPONSE=$(curl -s "$BACKEND_URL/api/user/user/preferences")
 if echo "$RESPONSE" | grep -qE "(language|cleanup_level|error)"; then
     if echo "$RESPONSE" | grep -q "error"; then
         echo -e "${YELLOW}SKIP${NC} (auth required)"
     else
         echo -e "${GREEN}PASS${NC}"
-        ((PASSED++))
+        PASSED=$((PASSED + 1))
     fi
 else
     echo -e "${RED}FAIL${NC}"
-    ((FAILED++))
+    FAILED=$((FAILED + 1))
 fi
 
 # Summary
