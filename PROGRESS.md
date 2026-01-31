@@ -150,3 +150,8 @@ These items may be addressed based on user feedback during beta testing:
 - Project remains in maintenance mode
 - All code compiles successfully
 - No outstanding development tasks
+
+### Session 191 (2026-01-31)
+- Bumped version to 0.2.0
+- Updated CHANGELOG.md with new features since 0.1.0
+- Committed and pushed to GitHub
