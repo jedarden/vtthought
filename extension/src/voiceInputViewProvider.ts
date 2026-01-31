@@ -227,6 +227,11 @@ export class VoiceInputViewProvider implements vscode.WebviewViewProvider {
             Sample Rate: <span id="sampleRate">-</span> Hz<br>
             Chunk Size: <span id="chunkSize">-</span> samples
         </div>
+        <div class="actions">
+            <button class="action-btn primary" id="btnSetup">Run Setup</button>
+            <button class="action-btn" id="btnSettings">Open Settings</button>
+            <button class="action-btn" id="btnConnect">Connect to Backend</button>
+        </div>
     </div>
 
     <script>
@@ -444,6 +449,17 @@ export class VoiceInputViewProvider implements vscode.WebviewViewProvider {
 
             // Auto-start on load if extension signals it
             vscode.postMessage({ type: 'ready' });
+
+            // Button click handlers
+            document.getElementById('btnSetup')?.addEventListener('click', () => {
+                vscode.postMessage({ type: 'command', command: 'vtthought.runSetup' });
+            });
+            document.getElementById('btnSettings')?.addEventListener('click', () => {
+                vscode.postMessage({ type: 'command', command: 'vtthought.openSettings' });
+            });
+            document.getElementById('btnConnect')?.addEventListener('click', () => {
+                vscode.postMessage({ type: 'command', command: 'vtthought.connectBackend' });
+            });
         })();
     </script>
 </body>

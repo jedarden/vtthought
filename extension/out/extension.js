@@ -93,6 +93,10 @@ class VTThoughtExtension {
             this.state.isRecording = false;
             this.updateStatusDisplay();
         });
+        // Register command callback from webview buttons
+        this.voiceInputViewProvider.onCommand((command) => {
+            vscode.commands.executeCommand(command);
+        });
         this.updateStatusDisplay();
         // Create dictation handler with context for first-run celebration
         this.dictationHandler = new textInsertion_1.DictationHandler(context);
