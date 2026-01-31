@@ -62,6 +62,7 @@ These ADRs document the architectural decisions for building a VS Code extension
 | [024](./ADR-024-versioning.md) | Versioning & Compatibility | Proposed | API versioning, feature detection, compatibility matrix |
 | [025](./ADR-025-container-registry-releases.md) | Container Registry & Releases | Proposed | ghcr.io hosting, semantic versioning, changelogs |
 | [026](./ADR-026-development-feedback-loop.md) | Development Feedback Loop | Proposed | Multi-layer testing, pre-commit hooks, CI validation |
+| [027](./ADR-027-vscode-marketplace.md) | VS Code Marketplace | Proposed | Publisher setup, package.json fields, CI publishing |
 
 ## Key Decisions Summary
 

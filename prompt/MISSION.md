@@ -46,6 +46,7 @@ Review the ADRs in `./ADRs/` for complete architectural decisions:
 - ADR-024: Versioning (API compatibility)
 - ADR-025: Container Registry and Release Process (ghcr.io)
 - ADR-026: Development Feedback Loop (testing, CI validation)
+- ADR-027: VS Code Marketplace (publisher setup, CI publishing)
 
 ## Current Phase
 
