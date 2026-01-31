@@ -136,14 +136,15 @@ jobs:
       - name: Install test dependencies
         run: |
           cd backend
-          pip install pytest pytest-asyncio httpx websockets
+          pip install -r requirements.txt
+          pip install pytest pytest-asyncio httpx
 
       - name: Run integration tests
         run: |
           cd backend
           pytest test_integration.py -v
         env:
-          ENVIRONMENT: test
+          ENVIRONMENT: testing
           SINGLE_USER_MODE: 'true'
 
   release:
