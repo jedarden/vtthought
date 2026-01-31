@@ -42,6 +42,7 @@ Review the ADRs in `./ADRs/` for complete architectural decisions:
 - ADR-017: First-Run Setup (3-click onboarding)
 - ADR-019: Observability (health endpoints, metrics)
 - ADR-024: Versioning (API compatibility)
+- ADR-025: Container Registry and Release Process (ghcr.io)
 
 ## Current Phase
 

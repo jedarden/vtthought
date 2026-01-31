@@ -4,11 +4,11 @@
 
 ## Current Status: Maintenance Mode (Session 166)
 
-All 19 ADRs implemented, project awaiting user feedback.
+All 18 ADRs implemented, project awaiting user feedback.
 
 ### Completed
 - [x] Created GitHub repository (jedarden/vtthought)
-- [x] Wrote 19 ADRs documenting architecture
+- [x] Wrote 18 ADRs documenting architecture
 - [x] Created README with project overview
 - [x] VS Code extension skeleton (Priority 1)
   - [x] TypeScript project initialized in `extension/`
@@ -291,7 +291,7 @@ All 19 ADRs implemented, project awaiting user feedback.
 - [x] Maintenance mode verification
   - Verified project state is stable
   - Git status clean (only session log changes)
-  - All 20 ADRs remain implemented
+  - All 18 ADRs remain implemented
   - Extension TypeScript compilation verified
   - Backend Python syntax validation verified
   - No TODO/FIXME markers in project code
@@ -302,7 +302,7 @@ All 19 ADRs implemented, project awaiting user feedback.
 - [x] Maintenance mode verification
   - Verified project state is stable
   - Git status clean (only session log changes)
-  - All 19 ADRs remain implemented
+  - All 18 ADRs remain implemented
   - Extension TypeScript compilation verified
   - Backend Python syntax validation verified
   - No TODO/FIXME markers in project code
@@ -313,7 +313,7 @@ All 19 ADRs implemented, project awaiting user feedback.
 - [x] Maintenance mode verification
   - Verified project state is stable
   - Git status clean (only session log changes)
-  - All 19 ADRs remain implemented
+  - All 18 ADRs remain implemented
   - Extension TypeScript compilation verified
   - Backend Python syntax validation verified
   - No TODO/FIXME markers in project code
@@ -398,12 +398,22 @@ All 19 ADRs implemented, project awaiting user feedback.
 
 ## Session Log
 
+### Session 167 - Maintenance Check
+- Verified project stability
+- TypeScript compilation verified
+- Python syntax validated
+- No TODO/FIXME markers in project code
+- All 18 ADRs remain implemented (corrected count)
+- Documentation files verified (5 docs)
+- ADR-025 added to MISSION.md references
+- Progress file updated
+
 ### Session 166 - Maintenance Check
 - Verified project stability
 - TypeScript compilation verified
 - Python syntax validated
 - No TODO/FIXME markers in project code
-- All 20 ADRs remain implemented
+- All 18 ADRs remain implemented
 - Documentation files verified (5 docs)
 - Project awaiting user feedback for next phase
 - Progress file updated
