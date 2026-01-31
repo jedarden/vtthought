@@ -18,7 +18,12 @@ interface ErrorMessage {
     message: string;
 }
 
-type WebViewMessage = AudioDataMessage | ReadyMessage | ErrorMessage;
+interface CommandMessage {
+    type: 'command';
+    command: string;
+}
+
+type WebViewMessage = AudioDataMessage | ReadyMessage | ErrorMessage | CommandMessage;
 
 /**
  * Audio capture WebView provider
@@ -33,6 +38,7 @@ export class VoiceInputViewProvider implements vscode.WebviewViewProvider {
     // Callbacks for audio data events
     private onAudioDataCallbacks: ((data: Float32Array, sampleRate: number) => void)[] = [];
     private onErrorCallbacks: ((error: string) => void)[] = [];
+    private onCommandCallbacks: ((command: string) => void)[] = [];
 
     constructor(private readonly _extensionUri: vscode.Uri) {}
 
@@ -48,6 +54,13 @@ export class VoiceInputViewProvider implements vscode.WebviewViewProvider {
      */
     public onError(callback: (error: string) => void): void {
         this.onErrorCallbacks.push(callback);
+    }
+
+    /**
+     * Register callback for commands from webview
+     */
+    public onCommand(callback: (command: string) => void): void {
+        this.onCommandCallbacks.push(callback);
     }
 
     /**
@@ -81,6 +94,9 @@ export class VoiceInputViewProvider implements vscode.WebviewViewProvider {
                         break;
                     case 'error':
                         this.onErrorCallbacks.forEach(cb => cb(message.message));
+                        break;
+                    case 'command':
+                        this.onCommandCallbacks.forEach(cb => cb(message.command));
                         break;
                 }
             },
@@ -168,6 +184,34 @@ export class VoiceInputViewProvider implements vscode.WebviewViewProvider {
         .info {
             font-size: 11px;
             color: var(--vscode-descriptionForeground);
+        }
+        .actions {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px solid var(--vscode-widget-border);
+        }
+        .action-btn {
+            padding: 6px 12px;
+            border: none;
+            border-radius: 4px;
+            background-color: var(--vscode-button-secondaryBackground);
+            color: var(--vscode-button-secondaryForeground);
+            cursor: pointer;
+            font-size: 12px;
+            text-align: left;
+        }
+        .action-btn:hover {
+            background-color: var(--vscode-button-secondaryHoverBackground);
+        }
+        .action-btn.primary {
+            background-color: var(--vscode-button-background);
+            color: var(--vscode-button-foreground);
+        }
+        .action-btn.primary:hover {
+            background-color: var(--vscode-button-hoverBackground);
         }
     </style>
 </head>
