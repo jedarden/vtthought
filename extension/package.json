@@ -3,6 +3,7 @@
   "displayName": "VTThought - Voice to Code",
   "description": "Voice-to-code VS Code extension with push-to-talk transcription and LLM post-processing",
   "version": "0.2.2",
+  "license": "MIT",
   "publisher": "vtthought",
   "icon": "icon.png",
   "engines": {
